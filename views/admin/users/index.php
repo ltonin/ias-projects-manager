@@ -18,7 +18,7 @@ use App\Support\View;
                 <td><?= View::escape($user->username) ?></td>
                 <td><?= View::escape($user->fullName()) ?></td>
                 <td><?= View::escape($user->email) ?></td>
-                <td><?= View::escape($user->role) ?></td>
+                <td><?= View::escape($user->roleLabel()) ?></td>
                 <td><span class="badge <?= $user->isActive ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $user->isActive ? 'Active' : 'Inactive' ?></span></td>
                 <td><?= View::escape($user->lastLoginAt?->format('Y-m-d H:i') ?? 'Never') ?></td>
                 <td><?= View::escape($user->createdAt->format('Y-m-d')) ?></td>

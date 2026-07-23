@@ -23,4 +23,5 @@ interface UserRepository
     public function setActive(int $id, bool $active, int $actingUserId): User;
     public function emailExists(string $email, ?int $exceptId = null): bool;
     public function usernameExists(string $username, ?int $exceptId = null): bool;
+    public function activeAdminCount(): int;
 }

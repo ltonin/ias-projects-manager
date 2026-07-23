@@ -22,6 +22,12 @@ final class UserService
     public function validate(array $input, bool $passwordRequired, ?int $exceptId = null): array
     {
         $errors = $this->validator->validateUser($input, $passwordRequired);
+        if ((string) ($input['role'] ?? '') === User::ROLE_ADMIN) {
+            $existing = $exceptId === null ? null : $this->users->findById($exceptId);
+            if ($existing === null || !$existing->isAdmin()) {
+                $errors['role'] = 'Administrator cannot be assigned through user management.';
+            }
+        }
         $email = UserValidator::normalizeEmail((string) ($input['email'] ?? ''));
         $username = UserValidator::normalizeUsername((string) ($input['username'] ?? ''));
         if (!isset($errors['email']) && $this->users->emailExists($email, $exceptId)) {

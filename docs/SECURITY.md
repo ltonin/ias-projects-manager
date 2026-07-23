@@ -2,7 +2,7 @@
 
 ## Assumptions and current controls
 
-The shared host, FTP account, database account, and control panel must be secured by the operator. HTTPS is required in production. The application implements session login by normalized email or username and the exact roles `admin`, `participant`, and `viewer`; only admins manage users. Login throttling, password-reset email, two-factor authentication, and audit logging remain future work.
+The shared host, FTP account, database account, and control panel must be secured by the operator. HTTPS is required in production. The application implements session login by normalized email or username and the exact roles `admin`, `project_manager`, `participant`, and `viewer`; only the single administrator manages users and people. Login throttling, password-reset email, two-factor authentication, and audit logging remain future work.
 
 Sessions use native PHP cookies with `HttpOnly`, `SameSite=Lax`, strict/cookie-only mode, and `Secure` when HTTPS is configured or detected. Login/logout regenerate the ID. Only user ID and authentication/activity timestamps are stored. Configurable idle/absolute timeouts invalidate authentication; missing and inactive accounts are also invalidated.
 
@@ -15,6 +15,8 @@ Passwords use `password_hash()` with `PASSWORD_DEFAULT`, `password_verify()`, an
 Usernames cannot contain `@`, so identifiers containing `@` are unambiguously email candidates. All other identifiers are canonical lowercase username candidates. Malformed, unknown, inactive, and wrong-password attempts use the same generic error. Neither usernames nor submitted login identifiers are stored in session state.
 
 People routes are admin-only and all writes are POST plus CSRF. Person values are escaped at output and persisted through prepared statements. Notes may contain sensitive administrative information: they appear only on the administrator edit form, never in lists, navigation, HTML comments, or logs. Person and account fields and active states are not synchronized.
+
+Project routes require authentication and project writes require CSRF. The administrator can manage all projects. A project manager needs a linked person and can manage only rows whose `manager_person_id` matches that person; services ignore/reject crafted ownership changes and repository updates repeat the ownership condition atomically. Participants, viewers, non-owners, and unlinked managers are read-only. Project notes are removed from unauthorized detail view models and all list models, not merely hidden with CSS.
 
 Production disables displayed errors and stack traces, logs server-side details, and returns generic messages. Health output is limited to application/database availability. Headers block MIME sniffing and framing and restrict browser features.
 

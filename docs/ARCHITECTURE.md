@@ -45,11 +45,11 @@ Authentication routes are `GET|POST /login` and POST-only `/logout`. Admin-only 
 
 Login identifiers are normalized once: values containing `@` use normalized email lookup, while other values use canonical lowercase username lookup. Repository methods issue direct prepared queries, so no user collection is filtered in PHP.
 
-`AuthSession` stores only user ID, authentication time, and last activity. `CurrentUser` loads at most once per request and invalidates missing/inactive users. `Authorization` provides authenticated/admin guards: anonymous users receive a login redirect with a sanitized internal target, while authenticated non-admins receive 403. `AuthenticationService` owns password verification, rehashing, and login state. `UserService` owns normalization and account use cases. Last-admin checks and changes use locked rows in a PDO transaction.
+`AuthSession` stores only user ID, authentication time, and last activity. `CurrentUser` and `CurrentPerson` cache their lookups once per request. `Authorization` provides authenticated/admin guards; `ProjectPolicy` centralizes project ownership and private-note decisions. `AuthenticationService` owns password verification, rehashing, and login state. `UserService` owns normalization and account use cases. Single-admin checks and changes use locked rows in a PDO transaction.
 
 Templates receive explicit data, contain no application logic, and escape dynamic text with `View::escape`. The renderer supports layouts, titles, errors, and session flash messages. Bootstrap 5.3.8 is checked into `public/assets/vendor`.
 
-## Users and people
+## Users, people, and projects
 
 `User` represents credentials, username, application role, and account status. `Person` represents a potential research participant and contains no authentication or authorization data. `people.user_id` is optional and unique with `ON DELETE SET NULL`.
 
@@ -61,13 +61,20 @@ users
 people
 ```
 
-`PersonService` normalizes explicitly accepted fields and owns validation/link rules. `PdoPersonRepository` owns prepared persistence, escaped-wildcard search, filters, deterministic ordering, and pagination. Future project work must point to people:
+`PersonService` normalizes explicitly accepted fields and owns validation/link rules. `PdoPersonRepository` owns prepared persistence, escaped-wildcard search, filters, deterministic ordering, and pagination.
+
+```text
+users 0..1 --- 0..1 people
+people 0..1 --- * projects
+```
+
+`projects.manager_person_id` is nullable and references the responsible person. `ProjectService` normalizes input and prevents project managers from assigning or changing ownership. `PdoProjectRepository` rechecks ownership in write SQL to close the gap between authorization and update, and owns combined search/filter/pagination. List objects and unauthorized detail models omit notes.
+
+Future participation remains a separate many-to-many association and is intentionally not implemented:
 
 ```text
 people 1 --- * project_participants * --- 1 projects
 ```
-
-Those future tables are intentionally not implemented.
 
 ## Why no full framework
 

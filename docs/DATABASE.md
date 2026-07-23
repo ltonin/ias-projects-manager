@@ -22,7 +22,7 @@ Use transactions for multi-step application writes. Keep transactions short; beg
 
 ## Users
 
-Migration `002_create_users.sql` adds normalized lowercase unique emails, `PASSWORD_DEFAULT` hashes, the three constrained roles, active state, login time, and timestamps. Apply it after `001`, then verify:
+Migration `002_create_users.sql` adds normalized lowercase unique emails, `PASSWORD_DEFAULT` hashes, roles, active state, login time, and timestamps. Migration `005` expands the constraint to exactly `admin`, `project_manager`, `participant`, and `viewer`. Application transactions and locked rows enforce one active administrator.
 
 ```sql
 SELECT version FROM schema_versions ORDER BY version;
@@ -50,3 +50,9 @@ Migration `004_create_people.sql` creates `people`. `user_id` is nullable, uniqu
 Positions use portable `VARCHAR` values: `full_professor`, `associate_professor`, `assistant_professor`, `researcher`, `postdoc`, `phd_student`, `research_fellow`, `technician`, `administrative_staff`, `external_collaborator`, and `other`. The generic `faculty` value is unsupported.
 
 `is_internal` means membership in the managing group or institution. Association dates are general availability dates, not project dates; `active_to` cannot precede `active_from`. `is_active` controls ordinary future selection independently from the linked user. Notes are limited to 2,000 characters by application validation.
+
+## Projects
+
+Migration `005_add_project_manager_and_projects.sql` creates `projects`. Acronym is required and unique; internal code and grant agreement number are nullable unique identifiers. `manager_person_id` is nullable and references `people.id ON DELETE SET NULL`. Deleting or disabling an account therefore does not erase project ownership identity.
+
+Statuses are `planned`, `active`, `completed`, `suspended`, and `cancelled`. Dates use `DATE`; an end date cannot precede a start date. Budget uses `DECIMAL(15,2)` and is present only together with a three-letter currency code. Nullable text inputs are stored as SQL `NULL`. Indexes support status, dates, manager, funding agency, and programme filters.

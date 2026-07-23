@@ -16,11 +16,11 @@ In the control panel confirm PHP 8.2 (or the closest compatible version), PDO My
 
 ## Database and smoke test
 
-In phpMyAdmin, select the intended database, import migrations `001` through `004`, and confirm all four versions. Migration `003` backfills existing accounts as `user-{id}` before enforcing non-null uniqueness. Apply only absent migrations in numeric order using [DATABASE.md](DATABASE.md).
+In phpMyAdmin, select the intended database, import migrations `001` through `005`, and confirm all five versions. Migration `003` backfills existing accounts as `user-{id}` before enforcing non-null uniqueness; migration `005` adds project-manager accounts and projects. Apply only absent migrations in numeric order using [DATABASE.md](DATABASE.md).
 
 Create the first administrator with a validated `--username` through `bin/create-admin.php` from a controlled local/Docker PHP environment connected to the production database. When the hosting network makes that impossible, generate a `PASSWORD_DEFAULT` hash locally and insert only the hash through phpMyAdmin; never put a plain password in SQL. Set production session timeouts and password minimum in `config.php`.
 
-Visit `/`, `/health`, `/login`, an unknown URL, and a known URL with the wrong method. Verify POST-only logout, admin access, participant/viewer 403 responses, session expiry, admin safety constraints, HTTPS, assets, subdirectory links, safe 404/405 behavior, and that `/csrf-test` returns 404 in production. Also smoke-test `/admin/people`, create/edit/link operations, search, filters, pagination, POST-only activation, and person/account active-state independence. Usernames must render without an `@` prefix. If rewrite fails, set `clean_urls=false`.
+Visit `/`, `/health`, `/login`, an unknown URL, and a known URL with the wrong method. Verify POST-only logout, admin access, non-admin 403 responses on admin routes, session expiry, the single-admin constraint, HTTPS, assets, subdirectory links, safe 404/405 behavior, and that `/csrf-test` returns 404 in production. Smoke-test people management and `/projects`: assignment, linked-manager ownership, non-owner write denial, read-only roles, search/filter/pagination, status changes, and private-note omission. Usernames must render without an `@` prefix. If rewrite fails, set `clean_urls=false`.
 
 ## Rollback
 

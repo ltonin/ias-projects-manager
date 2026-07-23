@@ -8,7 +8,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-MySQL applies migrations `001` through `004` only when creating an empty named volume. For an existing volume, import the missing migration through phpMyAdmin at <http://localhost:8081> and confirm `schema_versions`.
+MySQL applies migrations `001` through `005` only when creating an empty named volume. For an existing volume, import the missing migration through phpMyAdmin at <http://localhost:8081> and confirm `schema_versions`.
 
 Create the initial admin:
 
@@ -20,7 +20,7 @@ docker compose exec -e ADMIN_PASSWORD="$ADMIN_PASSWORD" web \
 unset ADMIN_PASSWORD
 ```
 
-Open <http://localhost:8080/login> and sign in using either email or `local.admin`. Admin user management is at `/admin/users`. Create representative `participant` and `viewer` accounts there; they must receive 403 on admin routes.
+Open <http://localhost:8080/login> and sign in using either email or `local.admin`. Admin user management is at `/admin/users`. Create representative `project_manager`, `participant`, and `viewer` accounts there; a second administrator must be rejected.
 
 People management is at `/admin/people`. To create and deliberately link a person:
 
@@ -29,6 +29,8 @@ docker compose exec web php bin/create-person.php \
   --first-name=Local --last-name=Researcher --position=researcher \
   --email=researcher@example.test --username=local.admin
 ```
+
+Link the project-manager account to a person before testing project creation. At `/projects`, verify combined search and filters, pagination, admin assignment/reassignment, manager self-ownership, non-owner write denial, participant/viewer read-only access, and that private notes are absent for unauthorized users.
 
 Run verification:
 

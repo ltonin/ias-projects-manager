@@ -6,10 +6,13 @@ use App\Auth\Csrf;
 use App\Auth\AuthSession;
 use App\Auth\Authorization;
 use App\Auth\CurrentUser;
+use App\Auth\CurrentPerson;
+use App\Auth\ProjectPolicy;
 use App\Auth\SessionManager;
 use App\Controllers\AdminUserController;
 use App\Controllers\AdminPersonController;
 use App\Controllers\AuthController;
+use App\Controllers\ProjectController;
 use App\Controllers\CsrfTestController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
@@ -22,16 +25,19 @@ use App\Http\Response;
 use App\Routing\Router;
 use App\Repositories\PdoUserRepository;
 use App\Repositories\PdoPersonRepository;
+use App\Repositories\PdoProjectRepository;
 use App\Services\AuthenticationService;
 use App\Services\HealthService;
 use App\Services\UserService;
 use App\Services\PersonService;
+use App\Services\ProjectService;
 use App\Support\ConfigLoader;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
 use App\Support\View;
 use App\Validation\UserValidator;
 use App\Validation\PersonValidator;
+use App\Validation\ProjectValidator;
 
 define('PROJECT_ROOT', dirname(__DIR__));
 require PROJECT_ROOT . '/bootstrap/autoload.php';
@@ -84,6 +90,10 @@ $auth = new AuthController($request, $view, $currentUser, $authentication, $vali
 $adminUsers = new AdminUserController($request, $view, $authorization, $users, $userService, $csrf, $flash, $urls);
 $people = new PdoPersonRepository(new ConnectionFactory($config));
 $adminPeople = new AdminPersonController($request, $view, $authorization, $people, new PersonService($people, new PersonValidator()), $csrf, $flash, $urls);
+$currentPerson = new CurrentPerson($currentUser, $people);
+$projectPolicy = new ProjectPolicy();
+$projects = new PdoProjectRepository(new ConnectionFactory($config));
+$projectController = new ProjectController($request, $view, $authorization, $currentPerson, $projectPolicy, $projects, new ProjectService($projects, new ProjectValidator(), $projectPolicy), $csrf, $flash, $urls);
 
 $router->get('/', fn (array $parameters): Response => $home->index(), 'home');
 $router->get('/health', fn (array $parameters): Response => $health->show(), 'health');
@@ -107,6 +117,13 @@ $router->get('/admin/people/{id}/edit', fn (array $parameters): Response => $adm
 $router->post('/admin/people/{id}', fn (array $parameters): Response => $adminPeople->update($parameters), 'admin.people.update');
 $router->post('/admin/people/{id}/activate', fn (array $parameters): Response => $adminPeople->activate($parameters), 'admin.people.activate');
 $router->post('/admin/people/{id}/deactivate', fn (array $parameters): Response => $adminPeople->deactivate($parameters), 'admin.people.deactivate');
+$router->get('/projects', fn (array $parameters): Response => $projectController->index(), 'projects');
+$router->get('/projects/create', fn (array $parameters): Response => $projectController->createForm(), 'projects.create');
+$router->post('/projects', fn (array $parameters): Response => $projectController->create(), 'projects.store');
+$router->get('/projects/{id}', fn (array $parameters): Response => $projectController->show($parameters), 'projects.show');
+$router->get('/projects/{id}/edit', fn (array $parameters): Response => $projectController->editForm($parameters), 'projects.edit');
+$router->post('/projects/{id}', fn (array $parameters): Response => $projectController->update($parameters), 'projects.update');
+$router->post('/projects/{id}/status', fn (array $parameters): Response => $projectController->status($parameters), 'projects.status');
 if ($environment !== 'production') {
     $csrfTest = new CsrfTestController($request, $csrf, $flash, $urls);
     $router->post('/csrf-test', fn (array $parameters): Response => $csrfTest->verify(), 'csrf-test');
@@ -114,8 +131,8 @@ if ($environment !== 'production') {
 
 try {
     return $router->dispatch($request);
-} catch (AuthorizationException) {
-    return new Response($view->render('errors/error', ['title' => 'Forbidden', 'status' => 403, 'message' => 'Access denied.']), 403);
+} catch (AuthorizationException $exception) {
+    return new Response($view->render('errors/error', ['title' => 'Forbidden', 'status' => 403, 'message' => $exception->getMessage()]), 403);
 } catch (AuthenticationRequiredException) {
     if ($sessionExpired) {
         $flash->add('warning', 'Your session expired. Please sign in again.');

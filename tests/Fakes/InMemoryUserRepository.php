@@ -54,6 +54,9 @@ final class InMemoryUserRepository implements UserRepository
 
     public function create(array $data): User
     {
+        if ($data['role'] === User::ROLE_ADMIN && $this->activeAdminCount() > 0) {
+            throw new AdminSafetyException('An administrator already exists.');
+        }
         if ($this->emailExists($data['email'])) {
             throw new DuplicateEmailException();
         }
@@ -75,7 +78,7 @@ final class InMemoryUserRepository implements UserRepository
         if ($id === $actorId && !$data['is_active']) {
             throw new AdminSafetyException('You cannot deactivate your own account.');
         }
-        if ($current->isAdmin() && $current->isActive && ($data['role'] !== User::ROLE_ADMIN || !$data['is_active']) && $this->activeAdminCount($id) === 0) {
+        if ($current->isAdmin() && $current->isActive && ($data['role'] !== User::ROLE_ADMIN || !$data['is_active']) && $this->activeAdminCountExcept($id) === 0) {
             throw new AdminSafetyException('The last active administrator cannot be deactivated or demoted.');
         }
         $updated = new User($id, $data['username'], $data['email'], $data['password_hash'] ?? $current->passwordHash, $data['first_name'], $data['last_name'], $data['role'], $data['is_active'], $current->lastLoginAt, $current->createdAt, new DateTimeImmutable());
@@ -96,7 +99,7 @@ final class InMemoryUserRepository implements UserRepository
         if (!$active && $id === $actingUserId) {
             throw new AdminSafetyException('You cannot deactivate your own account.');
         }
-        if (!$active && $user->isAdmin() && $user->isActive && $this->activeAdminCount($id) === 0) {
+        if (!$active && $user->isAdmin() && $user->isActive && $this->activeAdminCountExcept($id) === 0) {
             throw new AdminSafetyException('The last active administrator cannot be deactivated or demoted.');
         }
         return $this->users[$id] = new User($user->id, $user->username, $user->email, $user->passwordHash, $user->firstName, $user->lastName, $user->role, $active, $user->lastLoginAt, $user->createdAt, new DateTimeImmutable());
@@ -122,7 +125,12 @@ final class InMemoryUserRepository implements UserRepository
         return false;
     }
 
-    private function activeAdminCount(int $exceptId): int
+    public function activeAdminCount(): int
+    {
+        return count(array_filter($this->users, static fn (User $user): bool => $user->isAdmin() && $user->isActive));
+    }
+
+    private function activeAdminCountExcept(int $exceptId): int
     {
         return count(array_filter($this->users, static fn (User $user): bool => $user->id !== $exceptId && $user->isAdmin() && $user->isActive));
     }

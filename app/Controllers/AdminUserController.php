@@ -162,7 +162,7 @@ final class AdminUserController
             'user' => $user,
             'errors' => $errors,
             'values' => $values,
-            'roles' => User::ROLES,
+            'roles' => $user?->isAdmin() ? [User::ROLE_ADMIN] : User::MANAGEABLE_ROLES,
             'csrfToken' => $this->csrf->token(),
         ]), $status);
     }

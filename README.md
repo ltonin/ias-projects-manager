@@ -2,7 +2,7 @@
 
 A lightweight, server-rendered PHP application foundation for a university research group. It is intended to manage projects, people, participation, and monthly person-month allocations in later phases.
 
-**Current status:** milestone 3 adds an administrator-managed people registry alongside the existing account and authentication system. Projects, participation, person-month allocations, reports, invitations, email, audit logging, and password-reset email are not implemented.
+**Current status:** milestone 4 adds the project registry, project-manager ownership, filtering, pagination, and private project notes. Participation, person-month allocations, reports, invitations, email, audit logging, and password-reset email are not implemented.
 
 ## Requirements and local setup
 
@@ -15,7 +15,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The example values are local-only; choose different passwords if the database port is accessible to others. Docker initializes a new database volume with migrations `001`–`004`. Import each missing migration once through phpMyAdmin for an existing database.
+The example values are local-only; choose different passwords if the database port is accessible to others. Docker initializes a new database volume with migrations `001`–`005`. Import each missing migration once through phpMyAdmin for an existing database.
 
 - Application: <http://localhost:8080>
 - Health: <http://localhost:8080/health>
@@ -37,7 +37,7 @@ unset ADMIN_PASSWORD
 
 Omit the name/email options to be prompted. The password is accepted only through `ADMIN_PASSWORD`, so it is not echoed or placed in command arguments. Prefer a temporary environment value and clear it afterward.
 
-Login at `/login` with either email or username; logout is POST-only. Roles are exactly `admin`, `participant`, and `viewer`, and only admins may access `/admin/users`. Server-side rules prevent self-deactivation, self-demotion, and deactivation or demotion of the last active administrator.
+Login at `/login` with either email or username; logout is POST-only. Roles are exactly `admin`, `project_manager`, `participant`, and `viewer`. The application permits exactly one active administrator: ordinary user management cannot create or promote another administrator, and the existing administrator cannot be demoted or deactivated.
 
 Passwords use PHP `PASSWORD_DEFAULT`, accept passphrases without composition rules, and default to 12–4096 characters. Successful login transparently rehashes outdated hashes. Password-reset email is not implemented.
 
@@ -89,6 +89,16 @@ docker compose exec -T database sh -lc \
   'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"' \
   < database/migrations/004_create_people.sql
 ```
+
+## Project registry
+
+All authenticated users may browse `/projects` and open project details. Search covers project identifiers, funding fields, coordinator, and responsible-person details; status, responsible person, funding agency, and programme filters combine with server-side pagination.
+
+The administrator may create, edit, reassign, leave unassigned, and change the status of every project. A `project_manager` must first be linked to a person record and may create and manage only projects owned by that person. Submitted ownership fields cannot be used to take over or reassign a project. Participants and viewers have read-only access. Project notes are shown only to the administrator and the owning project manager and never appear in lists.
+
+Ownership deliberately references `people.id`, not `users.id`, so research identity remains stable if account access changes. Budget and currency must be supplied together; budgets use `DECIMAL(15,2)` and currencies use three-letter codes.
+
+Apply migration `005_add_project_manager_and_projects.sql` to an existing database after taking a backup. Project creation uses the authenticated web UI; there is intentionally no unattended project-creation CLI because ownership and private-note authorization require an authenticated actor.
 
 ## Configuration
 

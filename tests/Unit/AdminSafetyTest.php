@@ -44,6 +44,35 @@ final class AdminSafetyTest extends TestCase
         self::assertTrue($service->setActive(2, true, 1)->isActive);
     }
 
+    public function testCreatingASecondAdministratorIsBlocked(): void
+    {
+        $this->expectException(AdminSafetyException::class);
+        $this->service([UserFactory::make()])->create([
+            'username' => 'second.admin',
+            'email' => 'second@example.test',
+            'first_name' => 'Second',
+            'last_name' => 'Admin',
+            'role' => User::ROLE_ADMIN,
+            'is_active' => '1',
+            'password' => 'correct horse battery staple',
+        ]);
+    }
+
+    public function testCreatingAProjectManagerIsAllowed(): void
+    {
+        $created = $this->service([UserFactory::make()])->create([
+            'username' => 'project.manager',
+            'email' => 'manager@example.test',
+            'first_name' => 'Project',
+            'last_name' => 'Manager',
+            'role' => User::ROLE_PROJECT_MANAGER,
+            'is_active' => '1',
+            'password' => 'correct horse battery staple',
+        ]);
+
+        self::assertTrue($created->isProjectManager());
+    }
+
     /** @param list<User> $users */
     private function service(array $users): UserService
     {

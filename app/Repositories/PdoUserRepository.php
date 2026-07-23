@@ -60,8 +60,17 @@ final class PdoUserRepository implements UserRepository
 
     public function create(array $data): User
     {
+        $pdo = $this->connection();
+        $pdo->beginTransaction();
         try {
-            $statement = $this->connection()->prepare(
+            if ($data['role'] === User::ROLE_ADMIN) {
+                $statement = $pdo->prepare('SELECT id FROM users WHERE role = :role FOR UPDATE');
+                $statement->execute(['role' => User::ROLE_ADMIN]);
+                if ($statement->fetchColumn() !== false) {
+                    throw new AdminSafetyException('An administrator already exists.');
+                }
+            }
+            $statement = $pdo->prepare(
                 'INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active)
                  VALUES (:username, :email, :password_hash, :first_name, :last_name, :role, :is_active)'
             );
@@ -74,12 +83,18 @@ final class PdoUserRepository implements UserRepository
                 'role' => $data['role'],
                 'is_active' => $data['is_active'] ? 1 : 0,
             ]);
+            $id = (int) $pdo->lastInsertId();
+            $pdo->commit();
         } catch (PDOException $exception) {
+            $pdo->rollBack();
             $this->translateDuplicate($exception);
+            throw $exception;
+        } catch (\Throwable $exception) {
+            $pdo->rollBack();
             throw $exception;
         }
 
-        return $this->findById((int) $this->connection()->lastInsertId())
+        return $this->findById($id)
             ?? throw new \RuntimeException('Created user could not be loaded.');
     }
 
@@ -195,6 +210,13 @@ final class PdoUserRepository implements UserRepository
         $statement = $this->connection()->prepare($sql);
         $statement->execute($parameters);
         return (int) $statement->fetchColumn() > 0;
+    }
+
+    public function activeAdminCount(): int
+    {
+        $statement = $this->connection()->prepare('SELECT COUNT(*) FROM users WHERE role = :role AND is_active = 1');
+        $statement->execute(['role' => User::ROLE_ADMIN]);
+        return (int) $statement->fetchColumn();
     }
 
     private function connection(): PDO

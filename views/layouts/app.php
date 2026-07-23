@@ -23,6 +23,7 @@ use App\Support\View;
             <?php if ($currentUser === null): ?>
                 <a class="nav-link text-white" href="<?= View::escape($urls->to('/login')) ?>">Login</a>
             <?php else: ?>
+                <a class="nav-link text-white" href="<?= View::escape($urls->to('/projects')) ?>">Projects</a>
                 <?php if ($currentUser->isAdmin()): ?>
                     <a class="nav-link text-white" href="<?= View::escape($urls->to('/admin/users')) ?>">Users</a>
                     <a class="nav-link text-white" href="<?= View::escape($urls->to('/admin/people')) ?>">People</a>
@@ -30,7 +31,7 @@ use App\Support\View;
                 <span class="small">
                     <span class="d-block"><?= View::escape($currentUser->fullName()) ?></span>
                     <span class="text-white-50"><?= View::escape($currentUser->username) ?></span>
-                    <span class="badge text-bg-light"><?= View::escape($currentUser->role) ?></span>
+                    <span class="badge text-bg-light"><?= View::escape($currentUser->roleLabel()) ?></span>
                 </span>
                 <form method="post" action="<?= View::escape($urls->to('/logout')) ?>">
                     <input type="hidden" name="_csrf" value="<?= View::escape($globalCsrfToken) ?>">

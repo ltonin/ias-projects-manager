@@ -37,15 +37,16 @@ $action = $isEdit ? '/admin/users/' . $user->id : '/admin/users';
                 </div>
                 <div class="col-md-4">
                     <label class="form-label" for="role">Role</label>
-                    <select class="form-select<?= isset($errors['role']) ? ' is-invalid' : '' ?>" id="role" name="role" required>
-                        <?php foreach ($roles as $role): ?><option value="<?= View::escape($role) ?>" <?= ($values['role'] ?? '') === $role ? 'selected' : '' ?>><?= View::escape(ucfirst($role)) ?></option><?php endforeach; ?>
+                    <select class="form-select<?= isset($errors['role']) ? ' is-invalid' : '' ?>" id="role" name="role" required <?= $user?->isAdmin() ? 'disabled' : '' ?>>
+                        <?php foreach ($roles as $role): ?><option value="<?= View::escape($role) ?>" <?= ($values['role'] ?? '') === $role ? 'selected' : '' ?>><?= View::escape(App\Models\User::ROLE_LABELS[$role]) ?></option><?php endforeach; ?>
                     </select>
+                    <?php if ($user?->isAdmin()): ?><input type="hidden" name="role" value="admin"><?php endif; ?>
                     <?php if (isset($errors['role'])): ?><div class="invalid-feedback"><?= View::escape($errors['role']) ?></div><?php endif; ?>
                 </div>
                 <div class="col-12">
                     <div class="form-check">
-                        <input type="hidden" name="is_active" value="0">
-                        <input class="form-check-input" id="is_active" name="is_active" type="checkbox" value="1" <?= ($values['is_active'] ?? '0') === '1' ? 'checked' : '' ?>>
+                        <input type="hidden" name="is_active" value="<?= $user?->isAdmin() ? '1' : '0' ?>">
+                        <input class="form-check-input" id="is_active" name="is_active" type="checkbox" value="1" <?= ($values['is_active'] ?? '0') === '1' ? 'checked' : '' ?> <?= $user?->isAdmin() ? 'disabled' : '' ?>>
                         <label class="form-check-label" for="is_active">Active account</label>
                     </div>
                 </div>
