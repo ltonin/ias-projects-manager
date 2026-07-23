@@ -1,0 +1,2 @@
+-- The complete application schema is intentionally deferred.
+-- Begin a new installation with migrations/001_create_schema_versions.sql.

@@ -1,0 +1,14 @@
+/config/config.php
+/.env
+/vendor/
+/.phpunit.cache/
+/coverage/
+/storage/logs/*
+!/storage/logs/.gitkeep
+/.idea/
+/.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+docker-data/
