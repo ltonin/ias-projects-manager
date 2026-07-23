@@ -40,6 +40,7 @@ services:
       - ./database/migrations/003_add_usernames.sql:/docker-entrypoint-initdb.d/003_add_usernames.sql:ro
       - ./database/migrations/004_create_people.sql:/docker-entrypoint-initdb.d/004_create_people.sql:ro
       - ./database/migrations/005_add_project_manager_and_projects.sql:/docker-entrypoint-initdb.d/005_add_project_manager_and_projects.sql:ro
+      - ./database/migrations/006_create_project_participants.sql:/docker-entrypoint-initdb.d/006_create_project_participants.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-local-root-development-only}"]
       interval: 5s

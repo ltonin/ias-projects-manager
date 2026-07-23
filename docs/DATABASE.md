@@ -56,3 +56,11 @@ Positions use portable `VARCHAR` values: `full_professor`, `associate_professor`
 Migration `005_add_project_manager_and_projects.sql` creates `projects`. Acronym is required and unique; internal code and grant agreement number are nullable unique identifiers. `manager_person_id` is nullable and references `people.id ON DELETE SET NULL`. Deleting or disabling an account therefore does not erase project ownership identity.
 
 Statuses are `planned`, `active`, `completed`, `suspended`, and `cancelled`. Dates use `DATE`; an end date cannot precede a start date. Budget uses `DECIMAL(15,2)` and is present only together with a three-letter currency code. Nullable text inputs are stored as SQL `NULL`. Indexes support status, dates, manager, funding agency, and programme filters.
+
+## Project participants
+
+Migration `006_create_project_participants.sql` creates the many-to-many relationship. `project_id` cascades on project deletion; `person_id` restricts person deletion. A unique `(project_id, person_id)` index permits one primary role per person per project. Role, active state, and both participation dates are indexed.
+
+`project_role` is a portable `VARCHAR`: `principal_investigator`, `coordinator`, `local_coordinator`, `work_package_leader`, `task_leader`, `researcher`, `postdoc`, `phd_student`, `research_fellow`, `technician`, `administrative_support`, `external_collaborator`, `consultant`, or `other`. Application code owns the labels and validation.
+
+Participation dates are nullable. When present they must be ordered and fit all known project and person-association boundaries. `is_active` is stored independently from dates and from project, person, and account state. Empty notes become `NULL`.

@@ -15,6 +15,7 @@ use App\Http\Response;
 use App\Models\Project;
 use App\Models\User;
 use App\Repositories\ProjectRepository;
+use App\Repositories\ProjectParticipantRepository;
 use App\Services\ProjectService;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
@@ -25,7 +26,7 @@ final class ProjectController
     public function __construct(
         private readonly Request $request,private readonly View $view,private readonly Authorization $authorization,
         private readonly CurrentPerson $currentPerson,private readonly ProjectPolicy $policy,private readonly ProjectRepository $projects,
-        private readonly ProjectService $service,private readonly Csrf $csrf,private readonly Flash $flash,private readonly UrlGenerator $urls
+        private readonly ProjectParticipantRepository $participants,private readonly ProjectService $service,private readonly Csrf $csrf,private readonly Flash $flash,private readonly UrlGenerator $urls
     ){}
 
     public function index():Response
@@ -46,6 +47,10 @@ final class ProjectController
             'title'=>$project->acronym,'project'=>$canNotes?$project:$project->withoutNotes(),
             'canViewNotes'=>$canNotes,'canEdit'=>$this->policy->canEdit($user,$person,$project),
             'canStatus'=>$this->policy->canChangeStatus($user,$person,$project),'statusLabels'=>Project::STATUS_LABELS,'csrfToken'=>$this->csrf->token(),
+            'participantSummary'=>$this->participants->summaryForProject($project->id),
+            'participantTotal'=>$this->participants->countForProject($project->id),
+            'activeParticipantTotal'=>$this->participants->countForProject($project->id,true),
+            'canManageParticipants'=>$this->policy->canManageParticipants($user,$person,$project),
         ]));
     }
     public function createForm():Response

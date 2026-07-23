@@ -18,6 +18,10 @@ People routes are admin-only and all writes are POST plus CSRF. Person values ar
 
 Project routes require authentication and project writes require CSRF. The administrator can manage all projects. A project manager needs a linked person and can manage only rows whose `manager_person_id` matches that person; services ignore/reject crafted ownership changes and repository updates repeat the ownership condition atomically. Participants, viewers, non-owners, and unlinked managers are read-only. Project notes are removed from unauthorized detail view models and all list models, not merely hidden with CSS.
 
+Participant reads require any active authenticated account. Writes and removal require CSRF plus administrator or current owning-manager authorization. The service reloads current ownership, and each PDO write repeats ownership in its SQL condition, protecting stale forms and crafted project IDs. Participant IDs must belong to the route project; person and project identities cannot be changed by edit input.
+
+The unique project/person constraint protects against duplicate races. Search wildcards are escaped and all values are bound. Participation notes are removed from every list object and from unauthorized detail models. Removal deletes only the relationship and never the person, linked user, or ownership field.
+
 Production disables displayed errors and stack traces, logs server-side details, and returns generic messages. Health output is limited to application/database availability. Headers block MIME sniffing and framing and restrict browser features.
 
 ## Hosting limitations and open risks

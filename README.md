@@ -2,7 +2,7 @@
 
 A lightweight, server-rendered PHP application foundation for a university research group. It is intended to manage projects, people, participation, and monthly person-month allocations in later phases.
 
-**Current status:** milestone 4 adds the project registry, project-manager ownership, filtering, pagination, and private project notes. Participation, person-month allocations, reports, invitations, email, audit logging, and password-reset email are not implemented.
+**Current status:** milestone 5 adds project participants, project-specific roles and dates, ownership-based management, filtering, pagination, and private participation notes. Person-month allocations, reports, invitations, email, audit logging, and password-reset email are not implemented.
 
 ## Requirements and local setup
 
@@ -15,7 +15,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The example values are local-only; choose different passwords if the database port is accessible to others. Docker initializes a new database volume with migrations `001`–`005`. Import each missing migration once through phpMyAdmin for an existing database.
+The example values are local-only; choose different passwords if the database port is accessible to others. Docker initializes a new database volume with migrations `001`–`006`. Import each missing migration once through phpMyAdmin for an existing database.
 
 - Application: <http://localhost:8080>
 - Health: <http://localhost:8080/health>
@@ -99,6 +99,18 @@ The administrator may create, edit, reassign, leave unassigned, and change the s
 Ownership deliberately references `people.id`, not `users.id`, so research identity remains stable if account access changes. Budget and currency must be supplied together; budgets use `DECIMAL(15,2)` and currencies use three-letter codes.
 
 Apply migration `005_add_project_manager_and_projects.sql` to an existing database after taking a backup. Project creation uses the authenticated web UI; there is intentionally no unattended project-creation CLI because ownership and private-note authorization require an authenticated actor.
+
+## Project participants
+
+Participant records connect `projects` to `people`; they never reference users. Each person has at most one row per project and one primary project role. The supported roles range from Principal Investigator and Project Coordinator through research, technical, administrative, external-collaborator, consultant, and other roles.
+
+Project ownership (`projects.manager_person_id`) and participation (`project_participants`) are independent. A responsible manager is not added automatically, ownership changes do not modify participants, and removing a participant does not change ownership, the person, or a linked account.
+
+All authenticated users may browse participant lists and details through a project. The administrator manages participants everywhere; an owning project manager manages participants only on owned projects. Participant notes are visible only to those managers and are absent from list data and unauthorized detail models.
+
+Participation dates must be internally ordered and must fit known project and person-association boundaries. Participation, person, linked-account, and project active states remain independent and are shown separately. Lists support person/username/role search, participation state, role, internal/external, person-state filters, and server-side pagination.
+
+Apply `database/migrations/006_create_project_participants.sql` after migration `005`.
 
 ## Configuration
 

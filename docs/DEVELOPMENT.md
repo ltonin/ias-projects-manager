@@ -8,7 +8,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-MySQL applies migrations `001` through `005` only when creating an empty named volume. For an existing volume, import the missing migration through phpMyAdmin at <http://localhost:8081> and confirm `schema_versions`.
+MySQL applies migrations `001` through `006` only when creating an empty named volume. For an existing volume, import the missing migration through phpMyAdmin at <http://localhost:8081> and confirm `schema_versions`.
 
 Create the initial admin:
 
@@ -31,6 +31,8 @@ docker compose exec web php bin/create-person.php \
 ```
 
 Link the project-manager account to a person before testing project creation. At `/projects`, verify combined search and filters, pagination, admin assignment/reassignment, manager self-ownership, non-owner write denial, participant/viewer read-only access, and that private notes are absent for unauthorized users.
+
+From project details, add linked and unlinked people as participants. Verify the 14 project roles, date-boundary errors, duplicate prevention, list filters, warnings for independent inactive states, private notes, POST activation/deactivation, and confirmed removal. Removing a participant must leave the person, user, and project manager unchanged.
 
 Run verification:
 

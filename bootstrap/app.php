@@ -13,6 +13,7 @@ use App\Controllers\AdminUserController;
 use App\Controllers\AdminPersonController;
 use App\Controllers\AuthController;
 use App\Controllers\ProjectController;
+use App\Controllers\ProjectParticipantController;
 use App\Controllers\CsrfTestController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
@@ -26,11 +27,13 @@ use App\Routing\Router;
 use App\Repositories\PdoUserRepository;
 use App\Repositories\PdoPersonRepository;
 use App\Repositories\PdoProjectRepository;
+use App\Repositories\PdoProjectParticipantRepository;
 use App\Services\AuthenticationService;
 use App\Services\HealthService;
 use App\Services\UserService;
 use App\Services\PersonService;
 use App\Services\ProjectService;
+use App\Services\ProjectParticipantService;
 use App\Support\ConfigLoader;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
@@ -38,6 +41,7 @@ use App\Support\View;
 use App\Validation\UserValidator;
 use App\Validation\PersonValidator;
 use App\Validation\ProjectValidator;
+use App\Validation\ProjectParticipantValidator;
 
 define('PROJECT_ROOT', dirname(__DIR__));
 require PROJECT_ROOT . '/bootstrap/autoload.php';
@@ -93,7 +97,13 @@ $adminPeople = new AdminPersonController($request, $view, $authorization, $peopl
 $currentPerson = new CurrentPerson($currentUser, $people);
 $projectPolicy = new ProjectPolicy();
 $projects = new PdoProjectRepository(new ConnectionFactory($config));
-$projectController = new ProjectController($request, $view, $authorization, $currentPerson, $projectPolicy, $projects, new ProjectService($projects, new ProjectValidator(), $projectPolicy), $csrf, $flash, $urls);
+$projectParticipants = new PdoProjectParticipantRepository(new ConnectionFactory($config));
+$projectController = new ProjectController($request, $view, $authorization, $currentPerson, $projectPolicy, $projects, $projectParticipants, new ProjectService($projects, new ProjectValidator(), $projectPolicy), $csrf, $flash, $urls);
+$projectParticipantController = new ProjectParticipantController(
+    $request, $view, $authorization, $currentPerson, $projectPolicy, $projects, $projectParticipants,
+    new ProjectParticipantService($projectParticipants, $projects, $people, new ProjectParticipantValidator(), $projectPolicy),
+    $csrf, $flash, $urls,
+);
 
 $router->get('/', fn (array $parameters): Response => $home->index(), 'home');
 $router->get('/health', fn (array $parameters): Response => $health->show(), 'health');
@@ -124,6 +134,16 @@ $router->get('/projects/{id}', fn (array $parameters): Response => $projectContr
 $router->get('/projects/{id}/edit', fn (array $parameters): Response => $projectController->editForm($parameters), 'projects.edit');
 $router->post('/projects/{id}', fn (array $parameters): Response => $projectController->update($parameters), 'projects.update');
 $router->post('/projects/{id}/status', fn (array $parameters): Response => $projectController->status($parameters), 'projects.status');
+$router->get('/projects/{projectId}/participants', fn (array $parameters): Response => $projectParticipantController->index($parameters), 'project-participants');
+$router->get('/projects/{projectId}/participants/create', fn (array $parameters): Response => $projectParticipantController->createForm($parameters), 'project-participants.create');
+$router->post('/projects/{projectId}/participants', fn (array $parameters): Response => $projectParticipantController->create($parameters), 'project-participants.store');
+$router->get('/projects/{projectId}/participants/{participantId}', fn (array $parameters): Response => $projectParticipantController->show($parameters), 'project-participants.show');
+$router->get('/projects/{projectId}/participants/{participantId}/edit', fn (array $parameters): Response => $projectParticipantController->editForm($parameters), 'project-participants.edit');
+$router->post('/projects/{projectId}/participants/{participantId}', fn (array $parameters): Response => $projectParticipantController->update($parameters), 'project-participants.update');
+$router->post('/projects/{projectId}/participants/{participantId}/activate', fn (array $parameters): Response => $projectParticipantController->activate($parameters), 'project-participants.activate');
+$router->post('/projects/{projectId}/participants/{participantId}/deactivate', fn (array $parameters): Response => $projectParticipantController->deactivate($parameters), 'project-participants.deactivate');
+$router->get('/projects/{projectId}/participants/{participantId}/remove', fn (array $parameters): Response => $projectParticipantController->removeForm($parameters), 'project-participants.remove-confirm');
+$router->post('/projects/{projectId}/participants/{participantId}/remove', fn (array $parameters): Response => $projectParticipantController->remove($parameters), 'project-participants.remove');
 if ($environment !== 'production') {
     $csrfTest = new CsrfTestController($request, $csrf, $flash, $urls);
     $router->post('/csrf-test', fn (array $parameters): Response => $csrfTest->verify(), 'csrf-test');

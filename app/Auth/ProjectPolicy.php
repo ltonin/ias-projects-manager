@@ -16,6 +16,8 @@ final class ProjectPolicy
     public function canEdit(User $user,?Person $person,Project $project):bool{return $user->isAdmin()||($user->isProjectManager()&&$project->isOwnedBy($person?->id));}
     public function canChangeStatus(User $user,?Person $person,Project $project):bool{return $this->canEdit($user,$person,$project);}
     public function canViewNotes(User $user,?Person $person,Project $project):bool{return $this->canEdit($user,$person,$project);}
+    public function canManageParticipants(User $user,?Person $person,Project $project):bool{return $this->canEdit($user,$person,$project);}
+    public function canViewParticipantNotes(User $user,?Person $person,Project $project):bool{return $this->canEdit($user,$person,$project);}
     public function requireCreate(User $user,?Person $person):void
     {
         if($user->isProjectManager()&&$person===null)throw new AuthorizationException(self::MISSING_PERSON_MESSAGE);
@@ -24,5 +26,10 @@ final class ProjectPolicy
     public function requireEdit(User $user,?Person $person,Project $project):void
     {
         if(!$this->canEdit($user,$person,$project))throw new AuthorizationException('Project editing is not permitted.');
+    }
+    public function requireManageParticipants(User $user,?Person $person,Project $project):void
+    {
+        if($user->isProjectManager()&&$person===null)throw new AuthorizationException(self::MISSING_PERSON_MESSAGE);
+        if(!$this->canManageParticipants($user,$person,$project))throw new AuthorizationException('Participant management is not permitted for this project.');
     }
 }

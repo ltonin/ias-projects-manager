@@ -70,10 +70,18 @@ people 0..1 --- * projects
 
 `projects.manager_person_id` is nullable and references the responsible person. `ProjectService` normalizes input and prevents project managers from assigning or changing ownership. `PdoProjectRepository` rechecks ownership in write SQL to close the gap between authorization and update, and owns combined search/filter/pagination. List objects and unauthorized detail models omit notes.
 
-Future participation remains a separate many-to-many association and is intentionally not implemented:
+Participation is a separate many-to-many association with project-specific metadata:
 
 ```text
 people 1 --- * project_participants * --- 1 projects
+```
+
+`ProjectParticipantService` validates project/person boundaries and use cases. `PdoProjectParticipantRepository` owns joined search, filters, pagination, uniqueness-race translation, and write-time ownership conditions. Participant list objects and unauthorized detail models omit notes. Ownership never creates, changes, or removes participant rows.
+
+The future allocation relationship is intentionally not implemented:
+
+```text
+project_participants 1 --- * person_month_allocations
 ```
 
 ## Why no full framework
