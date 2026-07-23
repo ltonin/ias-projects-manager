@@ -19,3 +19,34 @@ Before applying a file, export a complete structure-and-data backup in phpMyAdmi
 MySQL DDL may auto-commit, so rollback is not guaranteed. Every risky migration needs a documented restore plan. If failure occurs, stop writes, preserve logs/errors, and restore the verified pre-migration export or apply a separately reviewed forward fix.
 
 Use transactions for multi-step application writes. Keep transactions short; begin/commit in the service/use-case boundary, roll back on every exception, and never perform user interaction or external I/O while a transaction is open.
+
+## Users
+
+Migration `002_create_users.sql` adds normalized lowercase unique emails, `PASSWORD_DEFAULT` hashes, the three constrained roles, active state, login time, and timestamps. Apply it after `001`, then verify:
+
+```sql
+SELECT version FROM schema_versions ORDER BY version;
+SELECT id, email, role, is_active FROM users;
+```
+
+Never expose `password_hash`. Administrator deactivation/demotion locks relevant rows in a transaction so the database retains at least one active administrator.
+
+Migration `003_add_usernames.sql` adds `username` as nullable, assigns every existing row `user-{id}`, then changes it to `NOT NULL` and adds `users_username_unique`. This lowercase backfill is valid and unique because the primary key is unique; it uses no triggers, routines, or generated columns.
+
+After migration, assign the existing administrator’s final username:
+
+```sql
+UPDATE users
+SET username = 'luca.tonin'
+WHERE email = 'luca.tonin@unipd.it';
+```
+
+The unique index causes a visible error if the username is already used. Application code normalizes usernames to lowercase and performs prepared, exclusion-aware uniqueness checks.
+
+## People registry
+
+Migration `004_create_people.sql` creates `people`. `user_id` is nullable, unique when present, and references `users.id ON DELETE SET NULL`. Institutional email is nullable and unique; empty values become SQL `NULL`. Account and person names, emails, and active states are intentionally independent.
+
+Positions use portable `VARCHAR` values: `full_professor`, `associate_professor`, `assistant_professor`, `researcher`, `postdoc`, `phd_student`, `research_fellow`, `technician`, `administrative_staff`, `external_collaborator`, and `other`. The generic `faculty` value is unsupported.
+
+`is_internal` means membership in the managing group or institution. Association dates are general availability dates, not project dates; `active_to` cannot precede `active_from`. `is_active` controls ordinary future selection independently from the linked user. Notes are limited to 2,000 characters by application validation.

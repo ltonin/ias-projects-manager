@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Auth\CurrentUser;
+use App\Auth\Csrf;
 use RuntimeException;
 
 final class View
@@ -12,6 +14,8 @@ final class View
         private readonly string $viewPath,
         private readonly UrlGenerator $urls,
         private readonly Flash $flash,
+        private readonly ?CurrentUser $currentUser = null,
+        private readonly ?Csrf $csrf = null,
     ) {
     }
 
@@ -21,6 +25,8 @@ final class View
         $sharedData = $data + [
             'urls' => $this->urls,
             'flashMessages' => $this->flash->consume(),
+            'currentUser' => $this->currentUser?->get(),
+            'globalCsrfToken' => $this->csrf?->token() ?? '',
         ];
         $content = $this->renderFile($template, $sharedData);
         return $this->renderFile($layout, $sharedData + [

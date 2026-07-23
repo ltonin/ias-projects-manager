@@ -40,7 +40,11 @@ final class Request
     public function method(): string { return $this->method; }
     public function path(): string { return $this->path; }
     public function query(string $key, mixed $default = null): mixed { return $this->query[$key] ?? $default; }
+    /** @return array<string, mixed> */
+    public function queryData(): array { return $this->query; }
     public function post(string $key, mixed $default = null): mixed { return $this->post[$key] ?? $default; }
+    /** @return array<string, mixed> */
+    public function postData(): array { return $this->post; }
     public function isSecure(): bool
     {
         return ($this->server['HTTPS'] ?? '') !== '' && ($this->server['HTTPS'] ?? '') !== 'off';

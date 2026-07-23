@@ -3,21 +3,35 @@
 declare(strict_types=1);
 
 use App\Auth\Csrf;
+use App\Auth\AuthSession;
+use App\Auth\Authorization;
+use App\Auth\CurrentUser;
 use App\Auth\SessionManager;
+use App\Controllers\AdminUserController;
+use App\Controllers\AdminPersonController;
+use App\Controllers\AuthController;
 use App\Controllers\CsrfTestController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Database\ConnectionFactory;
 use App\Exceptions\AuthorizationException;
+use App\Exceptions\AuthenticationRequiredException;
 use App\Exceptions\HttpException;
 use App\Http\Request;
 use App\Http\Response;
 use App\Routing\Router;
+use App\Repositories\PdoUserRepository;
+use App\Repositories\PdoPersonRepository;
+use App\Services\AuthenticationService;
 use App\Services\HealthService;
+use App\Services\UserService;
+use App\Services\PersonService;
 use App\Support\ConfigLoader;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
 use App\Support\View;
+use App\Validation\UserValidator;
+use App\Validation\PersonValidator;
 
 define('PROJECT_ROOT', dirname(__DIR__));
 require PROJECT_ROOT . '/bootstrap/autoload.php';
@@ -32,7 +46,8 @@ date_default_timezone_set($config->requireString('app.timezone'));
 
 $request = Request::fromGlobals($_SERVER, $_GET, $_POST, (string) $config->get('app.base_path', ''));
 $secure = str_starts_with(strtolower($config->requireString('app.base_url')), 'https://') || $request->isSecure();
-(new SessionManager())->start($config->requireString('app.session_name'), $secure);
+$sessionManager = new SessionManager();
+$sessionManager->start($config->requireString('app.session_name'), $secure);
 
 foreach ([
     'X-Content-Type-Options' => 'nosniff',
@@ -50,13 +65,48 @@ $urls = new UrlGenerator(
 );
 $flash = new Flash();
 $csrf = new Csrf();
-$view = new View(PROJECT_ROOT . '/views', $urls, $flash);
+$idleTimeout = (int) $config->get('app.session_idle_timeout', 1800);
+$absoluteTimeout = (int) $config->get('app.session_absolute_timeout', 28800);
+$passwordMinLength = (int) $config->get('app.password_min_length', 12);
+$authSession = new AuthSession($sessionManager, $idleTimeout, $absoluteTimeout);
+$sessionExpired = $authSession->hasExpired();
+$users = new PdoUserRepository(new ConnectionFactory($config));
+$currentUser = new CurrentUser($authSession, $users);
+$authorization = new Authorization($currentUser);
+$validator = new UserValidator($passwordMinLength);
+$authentication = new AuthenticationService($users, $authSession);
+$userService = new UserService($users, $validator, $authentication);
+$view = new View(PROJECT_ROOT . '/views', $urls, $flash, $currentUser, $csrf);
 $router = new Router();
 $home = new HomeController($view, $config, $csrf, $urls);
 $health = new HealthController(new HealthService(new ConnectionFactory($config)));
+$auth = new AuthController($request, $view, $currentUser, $authentication, $validator, $csrf, $flash, $urls);
+$adminUsers = new AdminUserController($request, $view, $authorization, $users, $userService, $csrf, $flash, $urls);
+$people = new PdoPersonRepository(new ConnectionFactory($config));
+$adminPeople = new AdminPersonController($request, $view, $authorization, $people, new PersonService($people, new PersonValidator()), $csrf, $flash, $urls);
 
 $router->get('/', fn (array $parameters): Response => $home->index(), 'home');
 $router->get('/health', fn (array $parameters): Response => $health->show(), 'health');
+$router->get('/login', fn (array $parameters): Response => $auth->loginForm(), 'login');
+$router->post('/login', fn (array $parameters): Response => $auth->login(), 'login.submit');
+$router->post('/logout', function (array $parameters) use ($authorization, $auth): Response {
+    $authorization->user();
+    return $auth->logout();
+}, 'logout');
+$router->get('/admin/users', fn (array $parameters): Response => $adminUsers->index(), 'admin.users');
+$router->get('/admin/users/create', fn (array $parameters): Response => $adminUsers->createForm(), 'admin.users.create');
+$router->post('/admin/users', fn (array $parameters): Response => $adminUsers->create(), 'admin.users.store');
+$router->get('/admin/users/{id}/edit', fn (array $parameters): Response => $adminUsers->editForm($parameters), 'admin.users.edit');
+$router->post('/admin/users/{id}', fn (array $parameters): Response => $adminUsers->update($parameters), 'admin.users.update');
+$router->post('/admin/users/{id}/activate', fn (array $parameters): Response => $adminUsers->activate($parameters), 'admin.users.activate');
+$router->post('/admin/users/{id}/deactivate', fn (array $parameters): Response => $adminUsers->deactivate($parameters), 'admin.users.deactivate');
+$router->get('/admin/people', fn (array $parameters): Response => $adminPeople->index(), 'admin.people');
+$router->get('/admin/people/create', fn (array $parameters): Response => $adminPeople->createForm(), 'admin.people.create');
+$router->post('/admin/people', fn (array $parameters): Response => $adminPeople->create(), 'admin.people.store');
+$router->get('/admin/people/{id}/edit', fn (array $parameters): Response => $adminPeople->editForm($parameters), 'admin.people.edit');
+$router->post('/admin/people/{id}', fn (array $parameters): Response => $adminPeople->update($parameters), 'admin.people.update');
+$router->post('/admin/people/{id}/activate', fn (array $parameters): Response => $adminPeople->activate($parameters), 'admin.people.activate');
+$router->post('/admin/people/{id}/deactivate', fn (array $parameters): Response => $adminPeople->deactivate($parameters), 'admin.people.deactivate');
 if ($environment !== 'production') {
     $csrfTest = new CsrfTestController($request, $csrf, $flash, $urls);
     $router->post('/csrf-test', fn (array $parameters): Response => $csrfTest->verify(), 'csrf-test');
@@ -66,6 +116,12 @@ try {
     return $router->dispatch($request);
 } catch (AuthorizationException) {
     return new Response($view->render('errors/error', ['title' => 'Forbidden', 'status' => 403, 'message' => 'Access denied.']), 403);
+} catch (AuthenticationRequiredException) {
+    if ($sessionExpired) {
+        $flash->add('warning', 'Your session expired. Please sign in again.');
+    }
+    $redirect = App\Support\RedirectTarget::sanitize($request->path());
+    return Response::redirect($urls->to('/login', ['redirect' => $redirect]));
 } catch (HttpException $exception) {
     return new Response($view->render('errors/error', [
         'title' => $exception->statusCode === 404 ? 'Not found' : 'Request error',

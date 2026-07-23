@@ -24,7 +24,7 @@ final class CsrfTestController
     {
         $token = $this->request->post('_csrf');
         if (!is_string($token) || !$this->csrf->validate($token)) {
-            return new Response('Invalid CSRF token.', 419, ['Content-Type' => 'text/plain; charset=UTF-8']);
+            return new Response('Invalid CSRF token.', 403, ['Content-Type' => 'text/plain; charset=UTF-8']);
         }
         $this->flash->add('success', 'CSRF validation succeeded.');
         return Response::redirect($this->urls->to('/'));

@@ -41,6 +41,9 @@ final class ConfigLoader
             'APP_DEBUG' => ['app', 'debug'],
             'APP_BASE_URL' => ['app', 'base_url'],
             'APP_BASE_PATH' => ['app', 'base_path'],
+            'SESSION_IDLE_TIMEOUT' => ['app', 'session_idle_timeout'],
+            'SESSION_ABSOLUTE_TIMEOUT' => ['app', 'session_absolute_timeout'],
+            'PASSWORD_MIN_LENGTH' => ['app', 'password_min_length'],
             'DB_HOST' => ['database', 'host'],
             'DB_PORT' => ['database', 'port'],
             'DB_NAME' => ['database', 'name'],
@@ -56,7 +59,7 @@ final class ConfigLoader
             }
             if ($name === 'APP_DEBUG') {
                 $value = filter_var($value, FILTER_VALIDATE_BOOL);
-            } elseif ($name === 'DB_PORT') {
+            } elseif (in_array($name, ['DB_PORT', 'SESSION_IDLE_TIMEOUT', 'SESSION_ABSOLUTE_TIMEOUT', 'PASSWORD_MIN_LENGTH'], true)) {
                 $value = (int) $value;
             }
             $overrides[$section][$key] = $value;

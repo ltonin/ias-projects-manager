@@ -2,15 +2,19 @@
 
 ## Assumptions and current controls
 
-The shared host, FTP account, database account, and control panel must be secured by the operator. HTTPS is required in production. The application currently has no login and protects no real records; authentication, role enforcement, rate limiting, and audit logging remain future work.
+The shared host, FTP account, database account, and control panel must be secured by the operator. HTTPS is required in production. The application implements session login by normalized email or username and the exact roles `admin`, `participant`, and `viewer`; only admins manage users. Login throttling, password-reset email, two-factor authentication, and audit logging remain future work.
 
-Sessions use native PHP cookies with `HttpOnly`, `SameSite=Lax`, strict/cookie-only mode, and `Secure` when HTTPS is configured or detected. Future login/logout code must regenerate the session ID, destroy old authenticated state, and use an inactivity/absolute timeout.
+Sessions use native PHP cookies with `HttpOnly`, `SameSite=Lax`, strict/cookie-only mode, and `Secure` when HTTPS is configured or detected. Login/logout regenerate the ID. Only user ID and authentication/activity timestamps are stored. Configurable idle/absolute timeouts invalidate authentication; missing and inactive accounts are also invalidated.
 
 Every state-changing form must carry the session CSRF token and every POST controller must validate it before acting. `POST /csrf-test` demonstrates this only outside production. SameSite is defense in depth, not a CSRF substitute.
 
 Templates must escape untrusted values with `View::escape`; raw HTML is permitted only for reviewed, trusted renderer output. SQL must use prepared PDO statements with native prepares. Never interpolate user input into SQL identifiers or clauses; allow-list such values.
 
-Passwords must eventually use `password_hash()` with the current `PASSWORD_DEFAULT`, `password_verify()`, rehash checks, unique accounts, rate limiting, and reset tokens that are random, hashed at rest, expiring, and single-use. Passwords must never be logged or reversibly encrypted.
+Passwords use `password_hash()` with `PASSWORD_DEFAULT`, `password_verify()`, and successful-login rehash checks. The default policy is 12–4096 characters with no arbitrary composition rules. Passwords and hashes never enter sessions, views, logs, or repopulated forms. Future reset tokens must be random, hashed at rest, expiring, and single-use.
+
+Usernames cannot contain `@`, so identifiers containing `@` are unambiguously email candidates. All other identifiers are canonical lowercase username candidates. Malformed, unknown, inactive, and wrong-password attempts use the same generic error. Neither usernames nor submitted login identifiers are stored in session state.
+
+People routes are admin-only and all writes are POST plus CSRF. Person values are escaped at output and persisted through prepared statements. Notes may contain sensitive administrative information: they appear only on the administrator edit form, never in lists, navigation, HTML comments, or logs. Person and account fields and active states are not synchronized.
 
 Production disables displayed errors and stack traces, logs server-side details, and returns generic messages. Health output is limited to application/database availability. Headers block MIME sniffing and framing and restrict browser features.
 
@@ -18,4 +22,4 @@ Production disables displayed errors and stack traces, logs server-side details,
 
 Shared hosting limits filesystem isolation, log control, header modules, security patch cadence, and secrets management. Confirm the PHP version/extensions, HTTPS/proxy behavior, document-root capability, Apache overrides, file permissions, database TLS/network location, backups, and log access with Aruba.
 
-Before real data: implement login and role authorization, authorization tests, session expiry, login throttling, audit logs, Content Security Policy, secure backup retention, dependency/security review, privacy/data-retention rules, and an incident procedure. FTP should be replaced by FTPS/SFTP if the plan supports it.
+Before sensitive real data: add login throttling, password-reset workflow, audit logs, Content Security Policy, secure backup retention, dependency/security review, privacy/data-retention rules, and an incident procedure. FTP should be replaced by FTPS/SFTP if the plan supports it.

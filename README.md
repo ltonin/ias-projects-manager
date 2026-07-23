@@ -2,7 +2,7 @@
 
 A lightweight, server-rendered PHP application foundation for a university research group. It is intended to manage projects, people, participation, and monthly person-month allocations in later phases.
 
-**Current status:** technical foundation only. The application is not feature-complete and contains no user, project, participant, or allocation CRUD.
+**Current status:** milestone 3 adds an administrator-managed people registry alongside the existing account and authentication system. Projects, participation, person-month allocations, reports, invitations, email, audit logging, and password-reset email are not implemented.
 
 ## Requirements and local setup
 
@@ -15,7 +15,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The example values are local-only; choose different passwords if the database port is accessible to others. Docker initializes a new database volume with migration `001`.
+The example values are local-only; choose different passwords if the database port is accessible to others. Docker initializes a new database volume with migrations `001`–`004`. Import each missing migration once through phpMyAdmin for an existing database.
 
 - Application: <http://localhost:8080>
 - Health: <http://localhost:8080/health>
@@ -23,11 +23,80 @@ The example values are local-only; choose different passwords if the database po
 
 Stop with `docker compose down`. Add `--volumes` only when intentionally discarding the local database.
 
+## First administrator and authentication
+
+After migration `002`, create the first administrator using the non-web CLI script:
+
+```bash
+read -s ADMIN_PASSWORD
+export ADMIN_PASSWORD
+docker compose exec -e ADMIN_PASSWORD="$ADMIN_PASSWORD" web \
+  php bin/create-admin.php --username=ada.lovelace --email=admin@example.edu --first-name=Ada --last-name=Lovelace
+unset ADMIN_PASSWORD
+```
+
+Omit the name/email options to be prompted. The password is accepted only through `ADMIN_PASSWORD`, so it is not echoed or placed in command arguments. Prefer a temporary environment value and clear it afterward.
+
+Login at `/login` with either email or username; logout is POST-only. Roles are exactly `admin`, `participant`, and `viewer`, and only admins may access `/admin/users`. Server-side rules prevent self-deactivation, self-demotion, and deactivation or demotion of the last active administrator.
+
+Passwords use PHP `PASSWORD_DEFAULT`, accept passphrases without composition rules, and default to 12–4096 characters. Successful login transparently rehashes outdated hashes. Password-reset email is not implemented.
+
+Usernames are trimmed and stored lowercase. They contain 3–50 characters from `a-z`, `0-9`, `.`, `_`, and `-`, and must start and end with a letter or number. Reserved names are `admin`, `administrator`, `root`, `system`, `support`, `login`, `logout`, `health`, `api`, and `assets`.
+
+Migration `003` assigns existing rows the deterministic unique username `user-{id}`. Set the known administrator username afterward:
+
+```bash
+docker compose exec -T database sh -lc \
+  'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"' \
+  < database/migrations/003_add_usernames.sql
+
+docker compose exec -T database sh -lc \
+  'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE" \
+  -e "UPDATE users SET username = '\''luca.tonin'\'' WHERE email = '\''luca.tonin@unipd.it'\'';"'
+```
+
+The database unique constraint makes this update fail visibly if `luca.tonin` is already used.
+
+## People registry
+
+Users are application accounts; people are individuals who may participate in future research projects. A person may have no account, and the optional relationship is one-to-one. Account and person names, emails, and active states are independent and never synchronized automatically.
+
+```text
+users
+  0..1
+   |
+  0..1
+people
+```
+
+Admins manage people at `/admin/people`, with search, active/internal/position/link filters, and server-side pagination. Supported positions are Full Professor, Associate Professor, Assistant Professor, Researcher, Postdoctoral Researcher, PhD Student, Research Fellow, Technician, Administrative Staff, External Collaborator, and Other. The obsolete generic `faculty` value is not supported.
+
+`is_internal` means membership in the managing group or institution rather than an external collaborator. Association dates describe the general relationship period; `is_active` controls normal future selection. Both are independent from a linked account’s active state.
+
+```bash
+docker compose exec web php bin/create-person.php \
+  --first-name=Luca --last-name=Tonin --position=researcher \
+  --email=luca.tonin@unipd.it --affiliation="University of Padua" \
+  --username=luca.tonin
+```
+
+Usernames are displayed without an `@` prefix. Email addresses retain their normal `@`.
+
+Apply the people migration to an existing database:
+
+```bash
+docker compose exec -T database sh -lc \
+  'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"' \
+  < database/migrations/004_create_people.sql
+```
+
 ## Configuration
 
 Defaults live in `config/config.example.php`. Docker overrides them with environment variables. For non-Docker/shared hosting, copy that file to `config/config.php`, set production values, and keep it uncommitted. Set `base_url` to the scheme and host and `base_path` to the installation path (for example `/research-manager`).
 
 Set `clean_urls` to `false` when rewriting is unavailable. The same internal routes then use forms such as `index.php?route=health`.
+
+Session settings are `SESSION_IDLE_TIMEOUT` (default 1800 seconds), `SESSION_ABSOLUTE_TIMEOUT` (28800), and `PASSWORD_MIN_LENGTH` (12). The absolute timeout must not be shorter than the idle timeout; the password minimum must be between 8 and 4096. Shared hosting can set equivalent values in `config/config.php`.
 
 ## Tests
 

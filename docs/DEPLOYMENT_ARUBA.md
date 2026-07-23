@@ -16,9 +16,11 @@ In the control panel confirm PHP 8.2 (or the closest compatible version), PDO My
 
 ## Database and smoke test
 
-In phpMyAdmin, select the intended database, inspect and import `database/migrations/001_create_schema_versions.sql`, and confirm version `001`. For later releases apply only absent migrations in numeric order using [DATABASE.md](DATABASE.md).
+In phpMyAdmin, select the intended database, import migrations `001` through `004`, and confirm all four versions. Migration `003` backfills existing accounts as `user-{id}` before enforcing non-null uniqueness. Apply only absent migrations in numeric order using [DATABASE.md](DATABASE.md).
 
-Visit `/`, `/health`, an unknown URL, and a known URL with the wrong method. Confirm HTTPS, assets, subdirectory links, safe 404/405 behavior, and that `/csrf-test` returns 404 in production. If rewrite fails, set `clean_urls=false` and use `index.php?route=health`.
+Create the first administrator with a validated `--username` through `bin/create-admin.php` from a controlled local/Docker PHP environment connected to the production database. When the hosting network makes that impossible, generate a `PASSWORD_DEFAULT` hash locally and insert only the hash through phpMyAdmin; never put a plain password in SQL. Set production session timeouts and password minimum in `config.php`.
+
+Visit `/`, `/health`, `/login`, an unknown URL, and a known URL with the wrong method. Verify POST-only logout, admin access, participant/viewer 403 responses, session expiry, admin safety constraints, HTTPS, assets, subdirectory links, safe 404/405 behavior, and that `/csrf-test` returns 404 in production. Also smoke-test `/admin/people`, create/edit/link operations, search, filters, pagination, POST-only activation, and person/account active-state independence. Usernames must render without an `@` prefix. If rewrite fails, set `clean_urls=false`.
 
 ## Rollback
 

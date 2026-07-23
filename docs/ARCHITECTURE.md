@@ -8,22 +8,22 @@ The application is a small, custom, server-rendered PHP system rather than a gen
 2. Bootstrap defines the project root, registers the `App\` autoloader, merges example/local/environment configuration, sets errors and timezone, starts a secure session, and adds security headers.
 3. Bootstrap constructs dependencies explicitly, registers routes, and dispatches a `Request`.
 4. A controller checks request concerns, calls services, and returns a `Response`.
-5. Services enforce application rules; repositories will own SQL when persistence features arrive.
+5. Services enforce application rules; repository implementations own SQL.
 6. `View` renders a content template inside a layout; the response is sent by the front controller.
 
 Exceptions become generic 403/404/405/500 pages. Production logs details through PHP while returning no trace or sensitive data.
 
 ## Responsibilities and dependency direction
 
-- `Auth`: session, CSRF, and future authentication/authorization primitives.
+- `Auth`: session metadata, CSRF, current-user request caching, and reusable authorization guards.
 - `Controllers`: request coordination only; no SQL or business rules.
 - `Database`: PDO construction and later transaction support.
 - `Http`: small request/response value objects.
 - `Routing`: route registration and static/parameter matching.
 - `Services`: use cases and business rules.
-- `Repositories`: future prepared PDO queries and persistence mapping.
-- `Validation`: future reusable input rules/results.
-- `Models`: future domain data/DTOs, independent from HTTP and PDO.
+- `Repositories`: interfaces used by services and PDO implementations containing prepared queries.
+- `Validation`: reusable input normalization and validation rules.
+- `Models`: domain data/DTOs independent from HTTP and PDO.
 - `Support`: configuration, URLs, flash messages, and views.
 - `views`: escaped presentation only.
 
@@ -35,7 +35,7 @@ Empty application directories are intentional architectural boundaries for the n
 
 Routes are defined once regardless of transport form. With `clean_urls=true`, `.htaccess` maps `/health` to the front controller. With rewriting unavailable, `index.php?route=health` produces the same request path. `base_path` is removed from incoming paths; `UrlGenerator` adds it to links, assets, redirects, and fallback URLs.
 
-Only `GET /`, `GET /health`, and development-only `POST /csrf-test` exist. Static routes and `{parameter}` segments are supported. A matched path with another method yields 405; unknown paths yield 404.
+Authentication routes are `GET|POST /login` and POST-only `/logout`. Admin-only user management lives under `/admin/users`; development-only `POST /csrf-test` remains. Static routes and `{parameter}` segments are supported. A matched path with another method yields 405; unknown paths yield 404.
 
 ## Configuration, database, and views
 
@@ -43,7 +43,31 @@ Only `GET /`, `GET /health`, and development-only `POST /csrf-test` exist. Stati
 
 `ConnectionFactory` creates explicit PDO dependencies with exception mode, associative fetches, native prepared statements, and `utf8mb4`. It replaces driver exceptions with a credential-free message. Future multi-step writes must use transactions in services/repositories.
 
+Login identifiers are normalized once: values containing `@` use normalized email lookup, while other values use canonical lowercase username lookup. Repository methods issue direct prepared queries, so no user collection is filtered in PHP.
+
+`AuthSession` stores only user ID, authentication time, and last activity. `CurrentUser` loads at most once per request and invalidates missing/inactive users. `Authorization` provides authenticated/admin guards: anonymous users receive a login redirect with a sanitized internal target, while authenticated non-admins receive 403. `AuthenticationService` owns password verification, rehashing, and login state. `UserService` owns normalization and account use cases. Last-admin checks and changes use locked rows in a PDO transaction.
+
 Templates receive explicit data, contain no application logic, and escape dynamic text with `View::escape`. The renderer supports layouts, titles, errors, and session flash messages. Bootstrap 5.3.8 is checked into `public/assets/vendor`.
+
+## Users and people
+
+`User` represents credentials, username, application role, and account status. `Person` represents a potential research participant and contains no authentication or authorization data. `people.user_id` is optional and unique with `ON DELETE SET NULL`.
+
+```text
+users
+  0..1
+   |
+  0..1
+people
+```
+
+`PersonService` normalizes explicitly accepted fields and owns validation/link rules. `PdoPersonRepository` owns prepared persistence, escaped-wildcard search, filters, deterministic ordering, and pagination. Future project work must point to people:
+
+```text
+people 1 --- * project_participants * --- 1 projects
+```
+
+Those future tables are intentionally not implemented.
 
 ## Why no full framework
 

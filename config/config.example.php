@@ -12,6 +12,9 @@ return [
         'clean_urls' => true,
         'timezone' => 'Europe/Rome',
         'session_name' => 'research_project_manager',
+        'session_idle_timeout' => 1800,
+        'session_absolute_timeout' => 28800,
+        'password_min_length' => 12,
     ],
     'database' => [
         'host' => 'database',

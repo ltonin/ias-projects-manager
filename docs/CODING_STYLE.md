@@ -7,4 +7,5 @@
 - Validate all external input with reusable validators and return field-specific errors. Never trust route, form, query, session, or database values merely because they are typed.
 - Catch exceptions only when adding context, translating at a boundary, rolling back, or producing an HTTP response. Never suppress errors or expose secrets/traces.
 - Add tests for behavior and regression risk. Update architecture, security, database, deployment, and roadmap documents when their contracts change.
+- Authentication state contains identifiers/timestamps only. Normalize emails before repository lookup, never expose hashes, and enforce route permissions server-side through the shared authorization guard.
 - Do not add a production package, framework, ORM, template engine, frontend build system, or CDN dependency without documented necessity and shared-hosting compatibility. Composer remains development-only.

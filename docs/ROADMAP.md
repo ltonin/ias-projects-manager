@@ -2,8 +2,8 @@
 
 Each phase requires migrations, authorization rules, validation, tests, documentation, and a deployable checkpoint.
 
-1. **Users and authentication:** administrator bootstrap, secure login/logout, password lifecycle, session expiry, and role foundation (`admin`, `participant`, `viewer`).
-2. **People management:** person records separated from optional application accounts.
+1. **Users and authentication — completed through milestone 2.1:** unique usernames, email-or-username login, administrator bootstrap, secure login/logout, password hashing/rehashing, session expiry, role guards, and administrator user management. Password-reset email remains future work.
+2. **People management — completed:** independent person records, optional one-to-one account links, admin management without deletion, search, filters, pagination, and independent activation.
 3. **Project management:** project identity, metadata, dates, status, and administration.
 4. **Project participants:** dated associations, roles, uniqueness, and integrity rules.
 5. **Monthly person-month allocations:** precise decimal values, project-month boundaries, totals, and transactional editing.
