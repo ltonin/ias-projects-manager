@@ -1,0 +1,23 @@
+Options -Indexes
+DirectoryIndex index.php
+
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^(?:composer\.(?:json|lock)|phpunit\.xml|compose\.yaml|Dockerfile|README\.md)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^assets/(.*)$ public/assets/$1 [L]
+    RewriteRule ^(?:app|bin|bootstrap|config|database|docs|storage|tests|vendor|views)(?:/|$) - [F,L,NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>

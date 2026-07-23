@@ -23,6 +23,7 @@ use App\Controllers\AnnualEffortController;
 use App\Controllers\CsrfTestController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
+use App\Controllers\AdminSystemController;
 use App\Database\ConnectionFactory;
 use App\Exceptions\AuthorizationException;
 use App\Exceptions\AuthenticationRequiredException;
@@ -71,16 +72,21 @@ require PROJECT_ROOT . '/bootstrap/autoload.php';
 
 $config = (new ConfigLoader(PROJECT_ROOT))->load();
 $environment = $config->requireString('app.environment');
-$debug = (bool) $config->get('app.debug', false) && $environment !== 'production';
+$debug = (bool) $config->get('app.debug', false) && in_array($environment, ['development','local','testing'], true);
 ini_set('display_errors', $debug ? '1' : '0');
 ini_set('log_errors', '1');
 error_reporting(E_ALL);
 date_default_timezone_set($config->requireString('app.timezone'));
+$logPath=(string)$config->get('app.log_path','storage/logs/application.log');
+if(!str_starts_with($logPath,'/'))$logPath=PROJECT_ROOT.'/'.ltrim($logPath,'/');
+$logDirectory=dirname($logPath);
+if(!is_dir($logDirectory))@mkdir($logDirectory,0775,true);
+if(is_dir($logDirectory)&&is_writable($logDirectory))ini_set('error_log',$logPath);
 
 $request = Request::fromGlobals($_SERVER, $_GET, $_POST, (string) $config->get('app.base_path', ''));
 $secure = str_starts_with(strtolower($config->requireString('app.base_url')), 'https://') || $request->isSecure();
 $sessionManager = new SessionManager();
-$sessionManager->start($config->requireString('app.session_name'), $secure);
+$sessionManager->start($config->requireString('app.session_name'), $secure, (string)$config->get('app.base_path',''));
 
 foreach ([
     'X-Content-Type-Options' => 'nosniff',
@@ -125,6 +131,7 @@ $home = new HomeController($view,$authorization,$currentPerson,$globalOverview,$
 $auth = new AuthController($request, $view, $currentUser, $authentication, $validator, $csrf, $flash, $urls);
 $adminUsers = new AdminUserController($request,$view,$authorization,$users,$userService,$people,$csrf,$flash,$urls);
 $adminPeople = new AdminPersonController($request, $view, $authorization, $people, new PersonService($people, new PersonValidator()), $csrf, $flash, $urls,$personCapacity);
+$adminSystem = new AdminSystemController($view,$authorization,new ConnectionFactory($config),$config,PROJECT_ROOT,$logDirectory);
 $personCapacityController = new PersonCapacityController($request,$view,$authorization,$currentPerson,$capacityPolicy,$people,$personCapacity,$personCapacityService,$decimalHours,$csrf,$flash,$urls);
 $projectParticipants = new PdoProjectParticipantRepository(new ConnectionFactory($config));
 $personHourAllocations = new PdoPersonHourAllocationRepository(new ConnectionFactory($config));
@@ -171,6 +178,7 @@ $router->get('/admin/people/{id}/edit', fn (array $parameters): Response => $adm
 $router->post('/admin/people/{id}', fn (array $parameters): Response => $adminPeople->update($parameters), 'admin.people.update');
 $router->post('/admin/people/{id}/activate', fn (array $parameters): Response => $adminPeople->activate($parameters), 'admin.people.activate');
 $router->post('/admin/people/{id}/deactivate', fn (array $parameters): Response => $adminPeople->deactivate($parameters), 'admin.people.deactivate');
+$router->get('/admin/system', fn (array $parameters): Response => $adminSystem->show(), 'admin.system');
 $router->get('/projects', fn (array $parameters): Response => $projectController->index(), 'projects');
 $router->get('/projects/create', fn (array $parameters): Response => $projectCreationController->show(), 'projects.create');
 $router->post('/projects/create', fn (array $parameters): Response => $projectCreationController->submit(), 'projects.create.submit');
@@ -220,7 +228,7 @@ $router->get('/admin/people/{personId}/capacity/overrides/{overrideId}/edit',fn(
 $router->post('/admin/people/{personId}/capacity/overrides/{overrideId}',fn(array$p):Response=>$personCapacityController->update($p),'capacity.update');
 $router->get('/admin/people/{personId}/capacity/overrides/{overrideId}/remove',fn(array$p):Response=>$personCapacityController->removeForm($p),'capacity.remove-confirm');
 $router->post('/admin/people/{personId}/capacity/overrides/{overrideId}/remove',fn(array$p):Response=>$personCapacityController->remove($p),'capacity.remove');
-if ($environment !== 'production') {
+if (in_array($environment, ['development','local','testing'], true)) {
     $csrfTest = new CsrfTestController($request, $csrf, $flash, $urls);
     $router->post('/csrf-test', fn (array $parameters): Response => $csrfTest->verify(), 'csrf-test');
 }

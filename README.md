@@ -160,11 +160,17 @@ Every annual table uses the same responsive participant, twelve-month, and annua
 
 ## Configuration
 
-Defaults live in `config/config.example.php`. Docker overrides them with environment variables. For non-Docker/shared hosting, copy that file to `config/config.php`, set production values, and keep it uncommitted. Set `base_url` to the scheme and host and `base_path` to the installation path (for example `/research-manager`).
+Defaults live in `config/config.example.php`. Docker supplies process environment
+variables; SFTP-only hosting reads the uncommitted root `.env`. Set `APP_URL` to
+the scheme and host and `APP_BASE_PATH` to the installation path (for example
+`/iaslab-projects`). Process variables take precedence over `.env`.
 
-Set `clean_urls` to `false` when rewriting is unavailable. The same internal routes then use forms such as `index.php?route=health`.
+Set `APP_CLEAN_URLS=false` when rewriting is unavailable. The same internal routes then use forms such as `index.php?route=health`.
 
-Session settings are `SESSION_IDLE_TIMEOUT` (default 1800 seconds), `SESSION_ABSOLUTE_TIMEOUT` (28800), and `PASSWORD_MIN_LENGTH` (12). The absolute timeout must not be shorter than the idle timeout; the password minimum must be between 8 and 4096. Shared hosting can set equivalent values in `config/config.php`.
+Session settings are `SESSION_IDLE_TIMEOUT` (default 1800 seconds),
+`SESSION_ABSOLUTE_TIMEOUT` (28800), and `PASSWORD_MIN_LENGTH` (12). The absolute
+timeout must not be shorter than the idle timeout; the password minimum must be
+between 8 and 4096.
 
 ## Tests
 
@@ -177,7 +183,9 @@ docker compose run --rm web vendor/bin/phpunit
 
 Alternatively, on a workstation with Composer and PHP's DOM/XML and mbstring extensions: `composer install && vendor/bin/phpunit`.
 
-Production does not require Composer or `vendor/`. The tests do not connect to or mutate MySQL. Quick source checks can be run with:
+Composer runs locally only; shared hosting receives the already-built `vendor/`
+directory and performs no runtime install. The tests do not connect to or mutate
+MySQL. Quick source checks can be run with:
 
 ```bash
 find app bootstrap config public tests views -name '*.php' -exec php -l {} \;
@@ -191,14 +199,18 @@ find app bootstrap config public tests views -name '*.php' -exec php -l {} \;
 - `database/`: schema entry point, manual migrations, and future seeds
 - `docker/`, `compose.yaml`, `Dockerfile`: development environment
 - `docs/`: architecture, operations, security, and contribution guidance
-- `public/`: the only web-accessible directory and front controller
+- `public/`: static public assets and the document-root-compatible front controller
 - `storage/`: ignored runtime logs
 - `tests/`: isolated unit tests
 - `views/`: layouts and presentation templates
 
 ## Production constraints
 
-Deployment targets basic Aruba shared hosting: FTP upload, phpMyAdmin migrations, no SSH, no server-side Composer, and possible subdirectory installation. See [docs/DEPLOYMENT_ARUBA.md](docs/DEPLOYMENT_ARUBA.md). Upload application runtime files but omit `.git/`, `.env`, `tests/`, `vendor/`, Docker files, PHPUnit files, and local logs.
+Deployment targets Aruba shared hosting with SFTP, phpMyAdmin, no SSH, and no
+server-side Composer. The complete locally built application—including `vendor/`,
+the protected root front controller, and public assets—is uploaded into its
+subdirectory. See [the staging procedure](docs/STAGING_DEPLOYMENT.md) and the
+[general Aruba notes](docs/DEPLOYMENT_ARUBA.md).
 
 Detailed design and future phases are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 # Milestone 11 workflow

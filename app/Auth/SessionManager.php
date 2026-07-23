@@ -6,7 +6,7 @@ namespace App\Auth;
 
 final class SessionManager
 {
-    public function start(string $name, bool $secure): void
+    public function start(string $name, bool $secure, string $cookiePath = '/'): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
@@ -14,7 +14,7 @@ final class SessionManager
         session_name($name);
         session_set_cookie_params([
             'lifetime' => 0,
-            'path' => '/',
+            'path' => $cookiePath === '' ? '/' : '/' . trim($cookiePath, '/') . '/',
             'secure' => $secure,
             'httponly' => true,
             'samesite' => 'Lax',

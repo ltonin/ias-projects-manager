@@ -4,9 +4,9 @@ code { color: #8b2d5e; }
 .effort-table {
     --effort-hierarchy-width: 15rem;
     --effort-annual-width: 5.5rem;
-    table-layout: fixed;
     width: 100%;
     min-width: 0;
+    table-layout: fixed;
 }
 .effort-table col.participant-column { width: var(--effort-hierarchy-width); }
 .effort-table col.month-column-width { width: auto; }

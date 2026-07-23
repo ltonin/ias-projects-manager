@@ -5,6 +5,7 @@ declare(strict_types=1);
 return [
     'app' => [
         'name' => 'Research Project Manager',
+        'version' => '12.0.0-staging',
         'environment' => 'development',
         'debug' => true,
         'base_url' => 'http://localhost:8080',
@@ -15,6 +16,7 @@ return [
         'session_idle_timeout' => 1800,
         'session_absolute_timeout' => 28800,
         'password_min_length' => 12,
+        'log_path' => 'storage/logs/application.log',
     ],
     'database' => [
         'host' => 'database',
