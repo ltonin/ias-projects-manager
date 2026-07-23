@@ -13,6 +13,7 @@ use App\Http\Request;
 use App\Http\Response;
 use App\Models\Person;
 use App\Repositories\PersonRepository;
+use App\Repositories\PersonCapacityRepository;
 use App\Services\PersonService;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
@@ -29,6 +30,7 @@ final class AdminPersonController
         private readonly Csrf $csrf,
         private readonly Flash $flash,
         private readonly UrlGenerator $urls,
+        private readonly PersonCapacityRepository $capacity,
     ) {
     }
 
@@ -147,6 +149,7 @@ final class AdminPersonController
             'positionLabels' => Person::POSITION_LABELS,
             'userOptions' => $this->people->availableUsers($person?->id),
             'csrfToken' => $this->csrf->token(),
+            'hasCapacityOverrides' => $person !== null && $this->capacity->hasOverridesForPerson($person->id),
         ]), $status);
     }
 
@@ -157,6 +160,7 @@ final class AdminPersonController
             'user_id' => '', 'first_name' => '', 'last_name' => '', 'institutional_email' => '',
             'affiliation' => '', 'position_type' => 'researcher', 'is_internal' => '1',
             'active_from' => '', 'active_to' => '', 'is_active' => '1', 'notes' => '',
+            'default_monthly_capacity_hours'=>'125.00',
         ];
     }
 
@@ -174,6 +178,7 @@ final class AdminPersonController
             'active_from' => $person->activeFrom?->format('Y-m-d') ?? '',
             'active_to' => $person->activeTo?->format('Y-m-d') ?? '',
             'is_active' => $person->isActive ? '1' : '0',
+            'default_monthly_capacity_hours'=>$person->defaultMonthlyCapacityHours,
             'notes' => $person->notes ?? '',
         ];
     }

@@ -7,7 +7,9 @@ namespace App\Services;
 use App\Exceptions\DuplicateEmailException;
 use App\Models\User;
 use App\Repositories\UserRepository;
+use App\Repositories\PersonRepository;
 use App\Validation\UserValidator;
+use App\Validation\PersonValidator;
 
 final class UserService
 {
@@ -15,6 +17,8 @@ final class UserService
         private readonly UserRepository $users,
         private readonly UserValidator $validator,
         private readonly AuthenticationService $authentication,
+        private readonly PersonRepository $people,
+        private readonly PersonValidator $personValidator,
     ) {
     }
 
@@ -36,13 +40,28 @@ final class UserService
         if (!isset($errors['username']) && $this->users->usernameExists($username, $exceptId)) {
             $errors['username'] = 'That username is already in use.';
         }
+        if($exceptId===null){
+            $selected=$this->personId($input['linked_person_id']??null);
+            if(trim((string)($input['linked_person_id']??''))!==''&&$selected===null)$errors['linked_person_id']='Select a valid Person.';
+            if($selected!==null){
+                $person=$this->people->findById($selected);
+                if($person===null)$errors['linked_person_id']='The selected Person no longer exists.';
+                elseif($person->userId!==null)$errors['linked_person_id']='The selected Person is already linked to a User.';
+            }else{
+                $personData=$this->newPersonData($input);
+                foreach($this->personValidator->validate($personData)as$field=>$message)$errors['person_'.$field]=$message;
+                $personEmail=(string)$personData['institutional_email'];
+                if(!isset($errors['person_institutional_email'])&&$this->people->emailExists($personEmail))$errors['linked_person_id']='A Person already uses this email. Select that Person explicitly if it is the same identity.';
+            }
+        }
         return $errors;
     }
 
     /** @param array<string, mixed> $input */
     public function create(array $input): User
     {
-        return $this->users->create([
+        if($this->validate($input,true)!==[])throw new \InvalidArgumentException('User information is invalid.');
+        $userData=[
             'username' => UserValidator::normalizeUsername((string) $input['username']),
             'email' => UserValidator::normalizeEmail((string) $input['email']),
             'password_hash' => $this->authentication->hash((string) $input['password']),
@@ -50,7 +69,9 @@ final class UserService
             'last_name' => trim((string) $input['last_name']),
             'role' => (string) $input['role'],
             'is_active' => isset($input['is_active']) && (string) $input['is_active'] === '1',
-        ]);
+        ];
+        $selected=$this->personId($input['linked_person_id']??null);
+        return$this->users->createWithPerson($userData,$selected===null?$this->newPersonData($input):null,$selected);
     }
 
     /** @param array<string, mixed> $input */
@@ -75,4 +96,12 @@ final class UserService
     {
         return $this->users->setActive($id, $active, $actingUserId);
     }
+    /** @param array<string,mixed>$input @return array<string,mixed> */
+    private function newPersonData(array$input):array{return[
+        'user_id'=>'','first_name'=>trim((string)($input['first_name']??'')),'last_name'=>trim((string)($input['last_name']??'')),
+        'institutional_email'=>UserValidator::normalizeEmail((string)($input['email']??'')),'affiliation'=>'','position_type'=>'other',
+        'is_internal'=>'0','active_from'=>'','active_to'=>'','is_active'=>(isset($input['is_active'])&&(string)$input['is_active']==='1')?'1':'0',
+        'default_monthly_capacity_hours'=>'125.00','notes'=>'',
+    ];}
+    private function personId(mixed$value):?int{$id=filter_var(trim((string)$value),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);return$id===false?null:(int)$id;}
 }

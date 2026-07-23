@@ -1,56 +1,46 @@
 <?php
-
 declare(strict_types=1);
-
 use App\Support\View;
-
-/** @var App\Support\UrlGenerator $urls */
 ?>
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= View::escape($title !== '' ? $title . ' · Research Project Manager' : 'Research Project Manager') ?></title>
-    <link rel="stylesheet" href="<?= View::escape($urls->asset('vendor/bootstrap/css/bootstrap.min.css')) ?>">
-    <link rel="stylesheet" href="<?= View::escape($urls->asset('css/app.css')) ?>">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?= View::escape($title!==''?$title.' · IASLab Projects Manager':'IASLab Projects Manager') ?></title>
+<script>try{if(localStorage.getItem('iaspm.sidebar')==='collapsed')document.documentElement.dataset.sidebarState='collapsed'}catch(e){}</script>
+<link rel="stylesheet" href="<?= View::escape($urls->asset('vendor/bootstrap/css/bootstrap.min.css')) ?>">
+<link rel="stylesheet" href="<?= View::escape($urls->asset('css/app.css')) ?>">
 </head>
-<body class="bg-light d-flex flex-column min-vh-100">
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-        <a class="navbar-brand" href="<?= View::escape($urls->to('/')) ?>">Research Project Manager</a>
-        <div class="d-flex align-items-center gap-3 text-white">
-            <?php if ($currentUser === null): ?>
-                <a class="nav-link text-white" href="<?= View::escape($urls->to('/login')) ?>">Login</a>
-            <?php else: ?>
-                <a class="nav-link text-white" href="<?= View::escape($urls->to('/projects')) ?>">Projects</a>
-                <?php if ($currentUser->isAdmin()): ?>
-                    <a class="nav-link text-white" href="<?= View::escape($urls->to('/admin/users')) ?>">Users</a>
-                    <a class="nav-link text-white" href="<?= View::escape($urls->to('/admin/people')) ?>">People</a>
-                <?php endif; ?>
-                <span class="small">
-                    <span class="d-block"><?= View::escape($currentUser->fullName()) ?></span>
-                    <span class="text-white-50"><?= View::escape($currentUser->username) ?></span>
-                    <span class="badge text-bg-light"><?= View::escape($currentUser->roleLabel()) ?></span>
-                </span>
-                <form method="post" action="<?= View::escape($urls->to('/logout')) ?>">
-                    <input type="hidden" name="_csrf" value="<?= View::escape($globalCsrfToken) ?>">
-                    <button class="btn btn-sm btn-outline-light" type="submit">Logout</button>
-                </form>
-            <?php endif; ?>
-        </div>
-    </div>
-</nav>
-<main class="container py-5 flex-grow-1">
-    <?php foreach ($flashMessages as $message): ?>
-        <div class="alert alert-<?= View::escape($message['type']) ?>" role="alert"><?= View::escape($message['message']) ?></div>
-    <?php endforeach; ?>
-    <?= $content ?>
-</main>
-<footer class="border-top bg-white py-3">
-    <div class="container text-secondary small">University research project administration foundation</div>
-</footer>
-<script src="<?= View::escape($urls->asset('vendor/bootstrap/js/bootstrap.bundle.min.js')) ?>"></script>
-<script src="<?= View::escape($urls->asset('js/app.js')) ?>"></script>
-</body>
-</html>
+<body class="bg-light">
+<?php if($currentUser!==null):?>
+<div class="app-shell">
+<svg class="sidebar-icon-sprite" aria-hidden="true"><symbol id="si-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5M5.5 10v10h13V10M9 20v-6h6v6"/></symbol><symbol id="si-projects" viewBox="0 0 24 24"><path d="M3 7.5h7l2 2h9v10H3zM3 7.5v-3h7l2 2h7v3"/></symbol><symbol id="si-people" viewBox="0 0 24 24"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8-1a2.5 2.5 0 1 0 0-5M2.5 20v-3a4 4 0 0 1 4-4h3a4 4 0 0 1 4 4v3m1-7h1.5a4 4 0 0 1 4 4v3"/></symbol><symbol id="si-capacity" viewBox="0 0 24 24"><path d="M4 20V10m5 10V4m6 16v-7m5 7V7"/></symbol><symbol id="si-admin" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5c0 4.8 3.2 8.2 7.5 10 4.3-1.8 7.5-5.2 7.5-10V6zM9 12l2 2 4-5"/></symbol><symbol id="si-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol><symbol id="si-users" viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7-1a3 3 0 1 0 0-6M2 20v-3a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v3m1-7a4 4 0 0 1 4 4v3"/></symbol><symbol id="si-logout" viewBox="0 0 24 24"><path d="M10 5H4v14h6m5-4 4-3-4-3m4 3H8"/></symbol><symbol id="si-collapse" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol></svg>
+<aside class="app-sidebar offcanvas-md offcanvas-start" tabindex="-1" id="app-sidebar" aria-label="Application navigation">
+<div class="offcanvas-header"><span class="sidebar-identifier">IASLab</span><button class="btn-close btn-close-white" type="button" data-bs-dismiss="offcanvas" data-bs-target="#app-sidebar" aria-label="Close navigation"></button></div>
+<div class="offcanvas-body">
+<div class="sidebar-top d-none d-md-flex"><span class="sidebar-identifier sidebar-collapsible-text">IASLab</span><button class="sidebar-collapse-toggle" type="button" aria-expanded="true" aria-controls="app-sidebar" aria-label="Collapse sidebar" data-sidebar-toggle data-sidebar-tooltip="Collapse sidebar"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-collapse"/></svg></button></div>
+<nav class="sidebar-navigation">
+<a class="sidebar-link<?= $currentPath==='/'?' active':'' ?>" <?= $currentPath==='/'?'aria-current="page"':'' ?> href="<?= View::escape($urls->to('/')) ?>" aria-label="Overview" data-sidebar-tooltip="Overview"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-home"/></svg><span class="sidebar-label">Overview</span></a>
+<div class="sidebar-section">
+<div class="sidebar-section-heading"><button type="button" class="sidebar-section-reveal<?= $currentProjectId!==null?' active':'' ?>" <?= $currentProjectId!==null?'aria-current="page"':'' ?> data-sidebar-reveal aria-label="Show Projects" data-sidebar-tooltip="Projects"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-projects"/></svg><span class="sidebar-label">Projects</span></button><?php if($canCreateProject):?><a class="sidebar-new-link" href="<?= View::escape($urls->to('/projects/create')) ?>">New</a><?php endif;?></div>
+<?php if(count($navigationProjects)>8):?><label class="visually-hidden" for="sidebar-project-search">Search projects</label><input id="sidebar-project-search" class="form-control form-control-sm sidebar-search" type="search" placeholder="Filter projects" data-sidebar-project-search><?php endif;?>
+<div class="sidebar-project-list" data-sidebar-projects>
+<?php foreach($navigationProjects as$navProject):?><a class="sidebar-project<?= $currentProjectId===$navProject->id?' active':'' ?>" <?= $currentProjectId===$navProject->id?'aria-current="page"':'' ?> data-project-name="<?= View::escape(strtolower($navProject->displayTitle())) ?>" href="<?= View::escape($urls->to('/projects/'.$navProject->id)) ?>"><span><?= View::escape($navProject->acronym) ?></span><small><?= View::escape($navProject->title) ?></small><i class="status-dot status-<?= View::escape($navProject->status) ?>" aria-label="<?= View::escape($navProject->statusLabel()) ?>"></i></a><?php endforeach;?>
+<?php if($navigationProjects===[]):?><span class="sidebar-empty">No accessible projects</span><?php endif;?>
+</div></div>
+<?php if($currentUser->isAdmin()):?><a class="sidebar-link<?= str_starts_with($currentPath,'/admin/people')?' active':'' ?>" <?= str_starts_with($currentPath,'/admin/people')?'aria-current="page"':'' ?> href="<?= View::escape($urls->to('/admin/people')) ?>" aria-label="People" data-sidebar-tooltip="People"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-people"/></svg><span class="sidebar-label">People</span></a><?php endif;?>
+<?php if($navigationCapacityGlobal||$navigationPersonId!==null):?><a class="sidebar-link<?= str_contains($currentPath,'capacity')?' active':'' ?>" <?= str_contains($currentPath,'capacity')?'aria-current="page"':'' ?> href="<?= View::escape($urls->to($navigationCapacityGlobal?'/capacity':'/people/'.$navigationPersonId.'/capacity')) ?>" aria-label="Capacity" data-sidebar-tooltip="Capacity"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-capacity"/></svg><span class="sidebar-label">Capacity</span></a><?php endif;?>
+<div class="sidebar-section"><div class="sidebar-section-heading"><button type="button" class="sidebar-section-reveal<?= str_starts_with($currentPath,'/admin/')?' active':'' ?>" <?= str_starts_with($currentPath,'/admin/')?'aria-current="page"':'' ?> data-sidebar-reveal aria-label="Show Administration" data-sidebar-tooltip="Administration"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-admin"/></svg><span class="sidebar-label">Administration</span></button></div>
+<a class="sidebar-link<?= $currentPath==='/projects'?' active':'' ?>" <?= $currentPath==='/projects'?'aria-current="page"':'' ?> href="<?= View::escape($urls->to('/projects')) ?>" aria-label="Manage projects" data-sidebar-tooltip="Manage projects"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-list"/></svg><span class="sidebar-label">Manage projects</span></a>
+<?php if($currentUser->isAdmin()):?><a class="sidebar-link" href="<?= View::escape($urls->to('/admin/people')) ?>" aria-label="Manage people" data-sidebar-tooltip="Manage people"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-people"/></svg><span class="sidebar-label">Manage people</span></a><a class="sidebar-link<?= str_starts_with($currentPath,'/admin/users')?' active':'' ?>" <?= str_starts_with($currentPath,'/admin/users')?'aria-current="page"':'' ?> href="<?= View::escape($urls->to('/admin/users')) ?>" aria-label="Users" data-sidebar-tooltip="Users"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-users"/></svg><span class="sidebar-label">Users</span></a><?php endif;?>
+</div></nav>
+<div class="sidebar-account"><div class="sidebar-account-text"><strong><?= View::escape($currentUser->fullName()) ?></strong><small><?= View::escape($currentUser->roleLabel()) ?></small></div><form method="post" action="<?= View::escape($urls->to('/logout')) ?>"><input type="hidden" name="_csrf" value="<?= View::escape($globalCsrfToken) ?>"><button class="sidebar-signout" aria-label="Sign out" data-sidebar-tooltip="Sign out"><svg class="sidebar-icon" aria-hidden="true"><use href="#si-logout"/></svg><span class="sidebar-label">Sign out</span></button></form></div>
+</div></aside>
+<div class="app-workspace">
+<header class="app-header"><div class="app-header-identity"><button class="btn sidebar-mobile-toggle" type="button" data-bs-toggle="offcanvas" data-bs-target="#app-sidebar" aria-controls="app-sidebar" aria-label="Open application navigation"><span aria-hidden="true">☰</span></button><img class="app-logo" src="<?= View::escape($urls->asset('img/iaslab-logo.svg')) ?>" alt="IASLab" width="36" height="36"><span class="app-title">IASLab Projects Manager</span></div><span class="app-header-user" title="<?= View::escape($currentUser->fullName()) ?>"><?= View::escape($currentUser->fullName()) ?></span></header>
+<main class="app-main"><div class="container-fluid"><?php foreach($flashMessages as$message):?><div class="alert alert-<?= View::escape($message['type']) ?>" role="alert"><?= View::escape($message['message']) ?></div><?php endforeach;?><?= $content ?></div></main>
+</div>
+</div>
+<?php else:?><main class="container py-5"><?php foreach($flashMessages as$message):?><div class="alert alert-<?= View::escape($message['type']) ?>"><?= View::escape($message['message']) ?></div><?php endforeach;?><?= $content ?></main><?php endif;?>
+<script src="<?= View::escape($urls->asset('vendor/bootstrap/js/bootstrap.bundle.min.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/app.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/annual-effort-decimal.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/annual-effort.js')) ?>"></script>
+</body></html>

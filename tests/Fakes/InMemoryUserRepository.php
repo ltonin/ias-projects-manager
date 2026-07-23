@@ -16,6 +16,12 @@ final class InMemoryUserRepository implements UserRepository
     public array $users = [];
     public bool $passwordUpdated = false;
     public bool $loginRecorded = false;
+    /** @var null|callable(array,?array,?int):void */
+    public $beforeLinkedCreate=null;
+    public int $linkedCreateCount=0;
+    /** @var array<string,mixed>|null */
+    public ?array$lastNewPersonData=null;
+    public ?int$lastExistingPersonId=null;
     private int $nextId = 1;
 
     /** @param list<User> $users */
@@ -66,6 +72,12 @@ final class InMemoryUserRepository implements UserRepository
         }
         $user = new User($this->nextId++, $data['username'], $data['email'], $data['password_hash'], $data['first_name'], $data['last_name'], $data['role'], $data['is_active'], null, $now, $now);
         return $this->users[$user->id] = $user;
+    }
+    public function createWithPerson(array$userData,?array$newPersonData,?int$existingPersonId):User
+    {
+        $snapshot=$this->users;$next=$this->nextId;$lastNew=$this->lastNewPersonData;$lastExisting=$this->lastExistingPersonId;
+        try{if($this->beforeLinkedCreate!==null)($this->beforeLinkedCreate)($userData,$newPersonData,$existingPersonId);$this->lastNewPersonData=$newPersonData;$this->lastExistingPersonId=$existingPersonId;$user=$this->create($userData);$this->linkedCreateCount++;return$user;}
+        catch(\Throwable$e){$this->users=$snapshot;$this->nextId=$next;$this->lastNewPersonData=$lastNew;$this->lastExistingPersonId=$lastExisting;throw$e;}
     }
 
     public function update(int $id, array $data): User

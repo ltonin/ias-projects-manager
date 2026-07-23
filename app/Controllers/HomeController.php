@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Auth\Csrf;
+use App\Auth\Authorization;
+use App\Auth\CurrentPerson;
+use App\Exceptions\HttpException;
+use App\Models\PersonHourAllocation;
+use App\Services\GlobalAnnualOverviewService;
 use App\Http\Response;
 use App\Support\Config;
 use App\Support\UrlGenerator;
@@ -14,20 +18,19 @@ final class HomeController
 {
     public function __construct(
         private readonly View $view,
-        private readonly Config $config,
-        private readonly Csrf $csrf,
-        private readonly UrlGenerator $urls,
+        private readonly Authorization $authorization,
+        private readonly CurrentPerson $currentPerson,
+        private readonly GlobalAnnualOverviewService $overview,
+        private readonly \App\Http\Request $request,
     ) {
     }
 
     public function index(): Response
     {
-        return new Response($this->view->render('home/index', [
-            'title' => 'Installation',
-            'appName' => $this->config->requireString('app.name'),
-            'environment' => $this->config->requireString('app.environment'),
-            'csrfToken' => $this->csrf->token(),
-            'csrfTestUrl' => $this->urls->to('/csrf-test'),
-        ]));
+        $user=$this->authorization->user();$raw=$this->request->query('year');
+        $year=filter_var($raw,FILTER_VALIDATE_INT,['options'=>['min_range'=>PersonHourAllocation::MIN_YEAR,'max_range'=>PersonHourAllocation::MAX_YEAR]]);
+        if($raw!==null&&$year===false)throw new HttpException(422,'Invalid overview year.');
+        $page=$this->overview->page($user,$this->currentPerson->get()?->id,$year===false?(int)date('Y'):(int)$year);
+        return new Response($this->view->render('home/index',['title'=>'Overview','page'=>$page]));
     }
 }

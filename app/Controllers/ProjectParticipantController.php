@@ -16,10 +16,16 @@ use App\Models\Project;
 use App\Models\ProjectParticipant;
 use App\Repositories\ProjectParticipantRepository;
 use App\Repositories\ProjectRepository;
+use App\Repositories\PersonHourAllocationRepository;
+use App\Support\PersonMonthConverter;
+use App\Exceptions\ParticipantHasAllocationsException;
+use App\Exceptions\ParticipantResponsibleForWorkPackageException;
+use App\Repositories\WorkPackageRepository;
 use App\Services\ProjectParticipantService;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
 use App\Support\View;
+use App\Support\ParticipationDateDefaults;
 
 final class ProjectParticipantController
 {
@@ -35,6 +41,9 @@ final class ProjectParticipantController
         private readonly Csrf $csrf,
         private readonly Flash $flash,
         private readonly UrlGenerator $urls,
+        private readonly PersonHourAllocationRepository $allocations,
+        private readonly PersonMonthConverter $converter,
+        private readonly WorkPackageRepository $workPackages,
     ) {
     }
 
@@ -53,6 +62,7 @@ final class ProjectParticipantController
             'roleLabels' => ProjectParticipant::ROLE_LABELS,
             'canManage' => $this->policy->canManageParticipants($user, $person, $project),
             'csrfToken' => $this->csrf->token(),
+            'configurationYear'=>$this->validYear($this->request->query('year')),
         ]));
     }
 
@@ -72,6 +82,14 @@ final class ProjectParticipantController
             'canManage' => $canManage,
             'canViewNotes' => $canNotes,
             'csrfToken' => $this->csrf->token(),
+            'hasAllocations'=>$this->allocations->hasAllocationsForParticipant($participant->id),
+            'allocationTotals'=>$this->allocations->totalsForParticipant($participant->id),
+            'unifiedAllocationTotals'=>$this->allocations->unifiedTotalsForParticipant($participant->id),
+            'divergentAllocationCount'=>$this->allocations->divergentCountForParticipant($participant->id),
+            'recentAllocations'=>$this->allocations->recentForParticipant($participant->id),
+            'allocationCount'=>$this->allocations->countForParticipant($participant->id),
+            'converter'=>$this->converter,
+            'responsibleWorkPackages'=>$this->workPackages->listByResponsibleParticipant($participant->id),
         ]));
     }
 
@@ -79,7 +97,8 @@ final class ProjectParticipantController
     public function createForm(array $parameters): Response
     {
         [$user, $person, $project] = $this->managementContext($parameters);
-        return $this->form('Add participant', 'create', $project, null, $user, $person, [], $this->emptyValues());
+        [$returnContext,$returnYear]=$this->returnContext($this->request->query('return'),$this->request->query('year'));
+        return $this->form('Add participant', 'create', $project, null, $user, $person, [], $this->emptyValues($project),200,$returnContext,$returnYear);
     }
 
     /** @param array<string,string> $parameters */
@@ -88,15 +107,16 @@ final class ProjectParticipantController
         [$user, $person, $project] = $this->managementContext($parameters);
         $this->requireCsrf();
         $input = $this->request->postData();
+        [$returnContext,$returnYear]=$this->returnContext($input['return_context']??null,$input['return_year']??null);
         $errors = $this->service->validateCreate($project, $input);
-        if ($errors !== []) return $this->form('Add participant', 'create', $project, null, $user, $person, $errors, $input, 422);
+        if ($errors !== []) return $this->form('Add participant', 'create', $project, null, $user, $person, $errors, $input, 422,$returnContext,$returnYear);
         try {
             $created = $this->service->create($project, $input, $user, $person);
         } catch (DuplicateProjectParticipantException $exception) {
-            return $this->form('Add participant', 'create', $project, null, $user, $person, ['person_id' => $exception->getMessage()], $input, 422);
+            return $this->form('Add participant', 'create', $project, null, $user, $person, ['person_id' => $exception->getMessage()], $input, 422,$returnContext,$returnYear);
         }
         $this->flash->add('success', $created->personName() . ' was added to ' . $project->acronym . '.');
-        return Response::redirect($this->urls->to($this->basePath($project)));
+        return Response::redirect($this->urls->to($returnContext==='effort'?'/projects/'.$project->id:$this->basePath($project),$returnContext!==null&&$returnYear!==null?['year'=>$returnYear]:[]));
     }
 
     /** @param array<string,string> $parameters */
@@ -104,7 +124,8 @@ final class ProjectParticipantController
     {
         [$user, $person, $project] = $this->managementContext($parameters);
         $participant = $this->participant($parameters, $project);
-        return $this->form('Edit participant', 'edit', $project, $participant, $user, $person, [], $this->values($participant));
+        [$returnContext,$returnYear]=$this->returnContext($this->request->query('return'),$this->request->query('year'));
+        return $this->form('Edit participant', 'edit', $project, $participant, $user, $person, [], $this->values($participant),200,$returnContext,$returnYear);
     }
 
     /** @param array<string,string> $parameters */
@@ -114,11 +135,12 @@ final class ProjectParticipantController
         $participant = $this->participant($parameters, $project);
         $this->requireCsrf();
         $input = $this->request->postData();
+        [$returnContext,$returnYear]=$this->returnContext($input['return_context']??null,$input['return_year']??null);
         $errors = $this->service->validateUpdate($project, $participant, $input);
-        if ($errors !== []) return $this->form('Edit participant', 'edit', $project, $participant, $user, $person, $errors, $input, 422);
+        if ($errors !== []) return $this->form('Edit participant', 'edit', $project, $participant, $user, $person, $errors, $input, 422,$returnContext,$returnYear);
         $updated = $this->service->update($project, $participant, $input, $user, $person);
         $this->flash->add('success', $updated->personName() . ' participation was updated.');
-        return Response::redirect($this->urls->to($this->basePath($project) . '/' . $updated->id));
+        return Response::redirect($this->urls->to($returnContext==='configure'?$this->basePath($project):$this->basePath($project).'/'.$updated->id,$returnContext==='configure'&&$returnYear!==null?['year'=>$returnYear]:[]));
     }
 
     /** @param array<string,string> $parameters */
@@ -136,6 +158,8 @@ final class ProjectParticipantController
             'project' => $project,
             'participant' => $participant->withoutNotes(),
             'csrfToken' => $this->csrf->token(),
+            'hasAllocations'=>$this->allocations->hasAllocationsForParticipant($participant->id),
+            'responsibleWorkPackageCount'=>$this->workPackages->countByResponsibleParticipant($participant->id),
         ]));
     }
 
@@ -146,7 +170,9 @@ final class ProjectParticipantController
         $participant = $this->participant($parameters, $project);
         $this->requireCsrf();
         $name = $participant->personName();
-        $this->service->remove($project, $participant, $user, $person);
+        try{$this->service->remove($project, $participant, $user, $person);}
+        catch(ParticipantHasAllocationsException$exception){throw new HttpException(409,$exception->getMessage());}
+        catch(ParticipantResponsibleForWorkPackageException$exception){throw new HttpException(409,$exception->getMessage());}
         $this->flash->add('success', $name . ' was removed from ' . $project->acronym . '.');
         return Response::redirect($this->urls->to($this->basePath($project)));
     }
@@ -202,24 +228,33 @@ final class ProjectParticipantController
     private function basePath(Project $project): string { return '/projects/' . $project->id . '/participants'; }
 
     /** @param array<string,string> $errors @param array<string,mixed> $values */
-    private function form(string $title, string $mode, Project $project, ?ProjectParticipant $participant, \App\Models\User $user, ?\App\Models\Person $person, array $errors, array $values, int $status = 200): Response
+    private function form(string $title, string $mode, Project $project, ?ProjectParticipant $participant, \App\Models\User $user, ?\App\Models\Person $person, array $errors, array $values, int $status = 200,?string$returnContext=null,?int$returnYear=null): Response
     {
         return new Response($this->view->render('project_participants/form', [
             'title' => $title,
             'mode' => $mode,
             'project' => $project,
             'participant' => $participant,
+            'user'=>$user,
             'errors' => $errors,
             'values' => $values,
             'peopleOptions' => $mode === 'create' ? $this->participants->availablePeople($project->id) : [],
             'roleLabels' => ProjectParticipant::ROLE_LABELS,
             'csrfToken' => $this->csrf->token(),
+            'returnContext'=>$returnContext,'returnYear'=>$returnYear,
         ]), $status);
     }
-    /** @return array<string,string> */
-    private function emptyValues(): array
+    /** @return array{?string,?int} */
+    private function returnContext(mixed$context,mixed$year):array
     {
-        return ['person_id' => '', 'project_role' => 'researcher', 'participation_start' => '', 'participation_end' => '', 'is_active' => '1', 'notes' => ''];
+        $context=(string)$context;if(!in_array($context,['effort','configure'],true))return[null,null];
+        return[$context,$this->validYear($year)??(int)date('Y')];
+    }
+    private function validYear(mixed$year):?int{$valid=filter_var($year,FILTER_VALIDATE_INT,['options'=>['min_range'=>\App\Models\PersonHourAllocation::MIN_YEAR,'max_range'=>\App\Models\PersonHourAllocation::MAX_YEAR]]);return$valid===false?null:(int)$valid;}
+    /** @return array<string,string> */
+    private function emptyValues(Project$project): array
+    {
+        return ['person_id' => '', 'project_role' => 'researcher']+(new ParticipationDateDefaults())->forProject($project)+['is_active' => '1', 'notes' => ''];
     }
     /** @return array<string,string> */
     private function values(ProjectParticipant $participant): array

@@ -34,6 +34,7 @@ $queryWithoutPage = $filters + ['per_page' => $page->perPage];
                 <td><?= View::escape($person->linkedUsername ?? '—') ?></td>
                 <td><div class="d-flex gap-2">
                     <a class="btn btn-sm btn-outline-primary" href="<?= View::escape($urls->to('/admin/people/'.$person->id.'/edit')) ?>">Edit</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="<?= View::escape($urls->to('/people/'.$person->id.'/capacity')) ?>">Capacity</a>
                     <form method="post" action="<?= View::escape($urls->to('/admin/people/'.$person->id.'/'.($person->isActive?'deactivate':'activate'))) ?>"><input type="hidden" name="_csrf" value="<?= View::escape($csrfToken) ?>"><button class="btn btn-sm btn-outline-<?= $person->isActive?'danger':'success' ?>" type="submit"><?= $person->isActive?'Deactivate':'Activate' ?></button></form>
                 </div></td>
             </tr>

@@ -64,3 +64,43 @@ Migration `006_create_project_participants.sql` creates the many-to-many relatio
 `project_role` is a portable `VARCHAR`: `principal_investigator`, `coordinator`, `local_coordinator`, `work_package_leader`, `task_leader`, `researcher`, `postdoc`, `phd_student`, `research_fellow`, `technician`, `administrative_support`, `external_collaborator`, `consultant`, or `other`. Application code owns the labels and validation.
 
 Participation dates are nullable. When present they must be ordered and fit all known project and person-association boundaries. `is_active` is stored independently from dates and from project, person, and account state. Empty notes become `NULL`.
+
+## Person-hour allocations
+
+Migration `007_add_person_hour_allocations.sql` adds required `projects.hours_per_pm DECIMAL(8,2) DEFAULT 125.00`, backfilling existing projects through the column default. It creates `person_hour_allocations` with a restrictive participant foreign key, unique `(project_participant_id, year, month)`, period indexes, years 2000–2100, months 1–12, and a check requiring planned or actual hours.
+
+Migration `010` replaces that original participant/month unique index with the normalized Work Package-aware uniqueness described below.
+
+Planned and actual values are nullable `DECIMAL(8,2)`. `NULL` and explicit `0.00` are distinct. Person-Month values are not columns; they are calculated from stored hours and the project’s current factor. Factor changes reinterpret historical PM display without altering hours, and no factor history exists.
+
+## Person capacity
+
+Migration `008_add_person_capacity.sql` adds `people.default_monthly_capacity_hours DECIMAL(8,2) NOT NULL DEFAULT 125.00` and backfills existing people. `person_month_capacity_overrides` contains unique `(person_id, year, month)` values, `DECIMAL(8,2)` available hours, private notes, timestamps, period indexes, and `ON DELETE CASCADE` only to its owning person.
+
+Effective capacity is an application-derived override-or-standard value. Allocation totals remain SQL sums through people → participants → allocations. Capacity and project `hours_per_pm` are intentionally independent.
+
+## Work Packages
+
+Migration `009_create_work_packages.sql` creates `work_packages` with a cascading project foreign key, nullable restrictive responsible-participant foreign key, case-insensitive unique `(project_id, code)`, state/date/responsibility indexes, optional dates and text, and timestamps. Codes use the database’s `utf8mb4_unicode_ci` collation, so uniqueness is case-insensitive within each project.
+
+Registry ordering is deterministic lexical code order followed by ID; codes such as `WP10` therefore sort before `WP2`.
+
+The ordinary responsible-participant foreign key preserves referenced participants but cannot by itself ensure matching projects. Services validate the relationship and PDO create/update statements conditionally require the participant and Work Package to belong to the same project. Work Package dates must be internally ordered and remain within known project dates.
+
+There is currently no project-deletion application route. In MySQL, directly deleting a project that still has a Work Package responsibility can be rejected while the required restrictive participant foreign key is evaluated, despite the Work Package project foreign key being cascading. Any future project-removal workflow must remove its Work Packages first in a transaction; Milestone 8A does not weaken participant protection to support a feature that does not yet exist.
+
+## Work Package allocation breakdown
+
+Migration `010_add_work_package_allocations.sql` adds nullable `person_hour_allocations.work_package_id`, its restrictive foreign key and index, plus a required `work_package_key`. The key is `0` for unassigned effort and otherwise equals `work_package_id`, enforced by a check constraint. Unique `(project_participant_id, work_package_key, year, month)` therefore guarantees both one row per participant/WP/month and at most one unassigned participant/month row without relying on MySQL’s nullable-unique behavior or a fake Work Package.
+
+Existing rows receive `work_package_id = NULL` and `work_package_key = 0`; their hours, dates, notes, IDs, and timestamps are not rewritten. Conditional PDO writes also require a selected Work Package to belong to the participant’s project.
+
+Milestone 10A adds no migration. Application create and assigned-update writes require `work_package_id > 0`; only the dedicated legacy reclassification update may change a normalized `(NULL, 0)` row to `(N, N)`. It preserves every other column and rejects duplicate targets through the existing unique constraint. `work_package_id` can become `NOT NULL` in a future migration only after the legacy classification count reaches zero.
+
+Milestone 10B adds no schema changes. Work Packages use application-level natural code ordering with ID fallback, consistently producing sequences such as `WP1`, `WP2`, `WP10` in registries, options, and the annual grid. Duplicate codes remain prohibited within a project; no persisted sort identity is introduced.
+
+For the future annual grid, the recommended bulk allocation payload is a flat list keyed by `(project_participant_id, work_package_id|null, year, month)` with planned/actual decimals. Load one project’s participants, Work Packages, allocation rows for months 1–12, participant capacities, and cross-project person/month totals as separate bounded datasets, then build matrix cells in application memory.
+
+Milestone 9 uses that bulk shape without a schema change. Grid writes require positive real Work Package IDs and operate on the existing normalized allocation identity. Unassigned rows remain unchanged and outside classified grid totals.
+
+The refined Milestone 10B UI retains both decimal columns. Unified grid writes set both to the submitted value in one transaction: empty maps to both `NULL`, explicit zero to both `0.00`, and a non-zero value to the same canonical decimal. Equal rows contribute their common value once. Rows where the columns differ are excluded from unified totals and cannot be written through the grid. No migration rewrites existing rows.

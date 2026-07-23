@@ -10,6 +10,14 @@ use App\Repositories\ProjectRepository;
 use DateTimeImmutable;
 final class InMemoryProjectRepository implements ProjectRepository
 {
+    public function accessibleFor(string $role,?int $personId,int $limit=200):array{return array_slice(array_values($this->projects),0,$limit);}
+    public function accessibleForYear(string $role,?int $personId,int$year,int$limit=200):array
+    {
+        $start=sprintf('%04d-01-01',$year);$end=sprintf('%04d-01-01',$year+1);
+        return array_slice(array_values(array_filter($this->projects,static fn(Project$p):bool=>
+            ($p->startDate===null||$p->startDate->format('Y-m-d')<$end)&&($p->endDate===null||$p->endDate->format('Y-m-d')>=$start)
+        )),0,$limit);
+    }
     /** @var array<int,Project> */ public array $projects=[];
     /** @var array<int,ProjectManagerOption> */ public array $people=[];
     private int $next=1;
@@ -26,6 +34,6 @@ final class InMemoryProjectRepository implements ProjectRepository
     public function managerOptions():array{return array_values($this->people);}
     private function exists(string $field,string $v,?int $x):bool{foreach($this->projects as $p)if($p->id!==$x&&strtolower((string)$p->$field)===strtolower($v))return true;return false;}
     private function duplicates(array $d,?int $x):void{foreach(['acronym'=>'acronym','internal_code'=>'internalCode','grant_agreement_number'=>'grantAgreementNumber']as$f=>$prop)if($d[$f]!==null&&$this->exists($prop,$d[$f],$x))throw new DuplicateProjectFieldException($f,'duplicate');}
-    private function make(int $id,array $d):Project{$now=new DateTimeImmutable('2026-01-01');$m=$d['manager_person_id']===null?null:($this->people[$d['manager_person_id']]??null);return new Project($id,$d['acronym'],$d['title'],$d['description'],$d['internal_code'],$d['grant_agreement_number'],$d['funding_agency'],$d['funding_programme'],$d['coordinator_organization'],$d['manager_person_id'],$d['start_date']===null?null:new DateTimeImmutable($d['start_date']),$d['end_date']===null?null:new DateTimeImmutable($d['end_date']),$d['status'],$d['total_budget'],$d['currency'],$d['website_url'],$d['notes'],$now,$now,$m?->name,null);}
-    private function data(Project $p):array{return['acronym'=>$p->acronym,'title'=>$p->title,'description'=>$p->description,'internal_code'=>$p->internalCode,'grant_agreement_number'=>$p->grantAgreementNumber,'funding_agency'=>$p->fundingAgency,'funding_programme'=>$p->fundingProgramme,'coordinator_organization'=>$p->coordinatorOrganization,'manager_person_id'=>$p->managerPersonId,'start_date'=>$p->startDate?->format('Y-m-d'),'end_date'=>$p->endDate?->format('Y-m-d'),'status'=>$p->status,'total_budget'=>$p->totalBudget,'currency'=>$p->currency,'website_url'=>$p->websiteUrl,'notes'=>$p->notes];}
+    private function make(int $id,array $d):Project{$now=new DateTimeImmutable('2026-01-01');$m=$d['manager_person_id']===null?null:($this->people[$d['manager_person_id']]??null);return new Project($id,$d['acronym'],$d['title'],$d['description'],$d['internal_code'],$d['grant_agreement_number'],$d['funding_agency'],$d['funding_programme'],$d['coordinator_organization'],$d['manager_person_id'],$d['start_date']===null?null:new DateTimeImmutable($d['start_date']),$d['end_date']===null?null:new DateTimeImmutable($d['end_date']),$d['status'],$d['total_budget'],$d['currency'],$d['website_url'],$d['notes'],$now,$now,$m?->name,null,$d['hours_per_pm']??'125.00');}
+    private function data(Project $p):array{return['acronym'=>$p->acronym,'title'=>$p->title,'description'=>$p->description,'internal_code'=>$p->internalCode,'grant_agreement_number'=>$p->grantAgreementNumber,'funding_agency'=>$p->fundingAgency,'funding_programme'=>$p->fundingProgramme,'coordinator_organization'=>$p->coordinatorOrganization,'manager_person_id'=>$p->managerPersonId,'start_date'=>$p->startDate?->format('Y-m-d'),'end_date'=>$p->endDate?->format('Y-m-d'),'status'=>$p->status,'total_budget'=>$p->totalBudget,'currency'=>$p->currency,'hours_per_pm'=>$p->hoursPerPm,'website_url'=>$p->websiteUrl,'notes'=>$p->notes];}
 }

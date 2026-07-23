@@ -108,6 +108,38 @@ final class ProjectParticipantServiceTest extends TestCase
         self::assertArrayHasKey('person_id', $service->validateCreate($project, $this->input()));
     }
 
+    public function testInactivePeopleAreNeitherEligibleNorAcceptedByCraftedRequests(): void
+    {
+        [$service,$participants,,$people,$project] = $this->context();
+        $data = $this->personData('Inactive','Person','inactive@example.test');
+        $data['is_active'] = false;
+        $inactive = $people->create($data);
+        $participants->people[$inactive->id] = new ParticipantPersonOption(
+            $inactive->id,
+            $inactive->fullName(),
+            $inactive->positionLabel(),
+            $inactive->affiliation,
+            $inactive->institutionalEmail,
+            false,
+            null,
+            '2025-01-01',
+            null,
+        );
+
+        $ids = array_map(
+            static fn (ParticipantPersonOption $person): int => $person->id,
+            $participants->availablePeople($project->id),
+        );
+        self::assertNotContains($inactive->id, $ids);
+
+        $input = $this->input(['person_id'=>(string)$inactive->id]);
+        self::assertSame('Select an active eligible person.', $service->validateCreate($project, $input)['person_id']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Select an active eligible person.');
+        $service->create($project, $input, UserFactory::make(), null);
+    }
+
     /** @return array{ProjectParticipantService,InMemoryProjectParticipantRepository,InMemoryProjectRepository,InMemoryPersonRepository,Project,\App\Models\Person,\App\Models\Person} */
     private function context(): array
     {

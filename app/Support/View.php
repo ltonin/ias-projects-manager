@@ -6,6 +6,7 @@ namespace App\Support;
 
 use App\Auth\CurrentUser;
 use App\Auth\Csrf;
+use App\Services\NavigationService;
 use RuntimeException;
 
 final class View
@@ -16,6 +17,8 @@ final class View
         private readonly Flash $flash,
         private readonly ?CurrentUser $currentUser = null,
         private readonly ?Csrf $csrf = null,
+        private readonly ?NavigationService $navigation = null,
+        private readonly string $requestPath = '/',
     ) {
     }
 
@@ -27,7 +30,9 @@ final class View
             'flashMessages' => $this->flash->consume(),
             'currentUser' => $this->currentUser?->get(),
             'globalCsrfToken' => $this->csrf?->token() ?? '',
-        ];
+        ] + ($this->navigation?->context($this->requestPath) ?? [
+            'navigationProjects'=>[],'currentProjectId'=>null,'canCreateProject'=>false,'navigationPersonId'=>null,'navigationCapacityGlobal'=>false,'currentPath'=>$this->requestPath,
+        ]);
         $content = $this->renderFile($template, $sharedData);
         return $this->renderFile($layout, $sharedData + [
             'content' => $content,

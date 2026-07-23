@@ -69,6 +69,7 @@ final class PdoProjectParticipantRepository implements ProjectParticipantReposit
         $statement->execute();
         return array_map(fn (array $row): ProjectParticipant => $this->hydrate($row)->withoutNotes(), $statement->fetchAll());
     }
+    public function allForProject(int$p):array{$s=$this->connection()->prepare($this->selectSql().' WHERE pp.project_id=:p ORDER BY pe.last_name,pe.first_name,pp.id');$s->execute(['p'=>$p]);return array_map(fn(array$r)=>$this->hydrate($r)->withoutNotes(),$s->fetchAll());}
 
     public function countForProject(int $projectId, ?bool $active = null): int
     {
@@ -85,24 +86,26 @@ final class PdoProjectParticipantRepository implements ProjectParticipantReposit
 
     public function create(array $data, ?int $requiredManagerPersonId = null): ProjectParticipant
     {
-        $sql = 'INSERT INTO project_participants
-            (project_id,person_id,project_role,participation_start,participation_end,is_active,notes)
-            SELECT :project_id,:person_id,:project_role,:participation_start,:participation_end,:is_active,:notes
-            FROM projects pr WHERE pr.id = :authorized_project_id';
-        $parameters = $this->parameters($data) + ['authorized_project_id' => $data['project_id']];
-        if ($requiredManagerPersonId !== null) {
-            $sql .= ' AND pr.manager_person_id = :required_manager';
-            $parameters['required_manager'] = $requiredManagerPersonId;
-        }
+        $pdo=$this->connection();$pdo->beginTransaction();
         try {
-            $statement = $this->connection()->prepare($sql);
-            $statement->execute($parameters);
+            $project=$pdo->prepare('SELECT manager_person_id FROM projects WHERE id=:id FOR UPDATE');$project->execute(['id'=>$data['project_id']]);$row=$project->fetch();
+            if(!is_array($row))throw new \OutOfBoundsException('Project not found.');
+            if($requiredManagerPersonId!==null&&(int)$row['manager_person_id']!==$requiredManagerPersonId)throw new AuthorizationException('Project ownership changed.');
+            $person=$pdo->prepare('SELECT is_active FROM people WHERE id=:id FOR UPDATE');$person->execute(['id'=>$data['person_id']]);$personRow=$person->fetch();
+            if(!is_array($personRow)||(int)$personRow['is_active']!==1)throw new \InvalidArgumentException('Select an active eligible person.');
+            $duplicate=$pdo->prepare('SELECT id FROM project_participants WHERE project_id=:project_id AND person_id=:person_id FOR UPDATE');$duplicate->execute(['project_id'=>$data['project_id'],'person_id'=>$data['person_id']]);
+            if($duplicate->fetchColumn()!==false)throw new DuplicateProjectParticipantException('That person already participates in this project.');
+            $statement=$pdo->prepare('INSERT INTO project_participants(project_id,person_id,project_role,participation_start,participation_end,is_active,notes)
+                VALUES(:project_id,:person_id,:project_role,:participation_start,:participation_end,:is_active,:notes)');
+            $statement->execute($this->parameters($data));$id=(int)$pdo->lastInsertId();$pdo->commit();
         } catch (PDOException $exception) {
+            if($pdo->inTransaction())$pdo->rollBack();
             $this->translateConstraint($exception);
             throw $exception;
+        }catch(\Throwable$exception){
+            if($pdo->inTransaction())$pdo->rollBack();throw$exception;
         }
-        if ($statement->rowCount() !== 1) throw new AuthorizationException('Project ownership changed.');
-        return $this->findById((int) $this->connection()->lastInsertId())
+        return $this->findById($id)
             ?? throw new \RuntimeException('Created participant could not be loaded.');
     }
 
@@ -172,7 +175,7 @@ final class PdoProjectParticipantRepository implements ProjectParticipantReposit
                     pe.is_active,pe.active_from,pe.active_to,u.username
              FROM people pe LEFT JOIN users u ON u.id=pe.user_id
              LEFT JOIN project_participants pp ON pp.person_id=pe.id AND pp.project_id=:project_id
-             WHERE pp.id IS NULL ORDER BY pe.last_name,pe.first_name,pe.id'
+             WHERE pp.id IS NULL AND pe.is_active=1 ORDER BY pe.last_name,pe.first_name,pe.id'
         );
         $statement->execute(['project_id' => $projectId]);
         return array_map(static fn (array $row): ParticipantPersonOption => new ParticipantPersonOption(

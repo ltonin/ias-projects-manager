@@ -28,6 +28,43 @@ final class PdoProjectRepository implements ProjectRepository
         return is_array($row)?$this->hydrate($row):null;
     }
 
+    public function accessibleFor(string $role,?int $personId,int $limit=200):array
+    {
+        return $this->accessible($role,$personId,null,$limit);
+    }
+
+    public function accessibleForYear(string $role,?int $personId,int $year,int $limit=200):array
+    {
+        return $this->accessible($role,$personId,$year,$limit);
+    }
+
+    private function accessible(string $role,?int $personId,?int $year,int $limit):array
+    {
+        $sql=$this->selectSql();
+        $parameters=[];$conditions=[];
+        if($role!=='admin'&&$role!=='viewer'){
+            if($personId===null)return[];
+            $conditions[]='(pr.manager_person_id=:person_id OR EXISTS (
+                SELECT 1 FROM project_participants pp WHERE pp.project_id=pr.id AND pp.person_id=:participant_person_id
+            ))';
+            $parameters=['person_id'=>$personId,'participant_person_id'=>$personId];
+        }
+        if($year!==null){
+            $conditions[]='(pr.start_date IS NULL OR pr.start_date < :year_end_exclusive)
+                AND (pr.end_date IS NULL OR pr.end_date >= :year_start)';
+            $parameters['year_start']=sprintf('%04d-01-01',$year);
+            $parameters['year_end_exclusive']=sprintf('%04d-01-01',$year+1);
+        }
+        if($conditions!==[])$sql.=' WHERE '.implode(' AND ',$conditions);
+        $sql.=" ORDER BY CASE pr.status WHEN 'active' THEN 0 WHEN 'planned' THEN 1 WHEN 'suspended' THEN 2 ELSE 3 END,
+            pr.start_date IS NULL,pr.start_date,pr.acronym,pr.id LIMIT :limit";
+        $statement=$this->connection()->prepare($sql);
+        foreach($parameters as$key=>$value)$statement->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);
+        $statement->bindValue(':limit',$limit,PDO::PARAM_INT);
+        $statement->execute();
+        return array_map(fn(array$row):Project=>$this->hydrate($row)->withoutNotes(),$statement->fetchAll());
+    }
+
     public function search(array $filters, int $page, int $perPage): ProjectPage
     {
         [$where,$parameters]=$this->where($filters);
@@ -47,9 +84,9 @@ final class PdoProjectRepository implements ProjectRepository
         try {
             $statement=$this->connection()->prepare('INSERT INTO projects
                 (acronym,title,description,internal_code,grant_agreement_number,funding_agency,funding_programme,
-                 coordinator_organization,manager_person_id,start_date,end_date,status,total_budget,currency,website_url,notes)
+                 coordinator_organization,manager_person_id,start_date,end_date,status,total_budget,currency,hours_per_pm,website_url,notes)
                 VALUES (:acronym,:title,:description,:internal_code,:grant_agreement_number,:funding_agency,:funding_programme,
-                 :coordinator_organization,:manager_person_id,:start_date,:end_date,:status,:total_budget,:currency,:website_url,:notes)');
+                 :coordinator_organization,:manager_person_id,:start_date,:end_date,:status,:total_budget,:currency,:hours_per_pm,:website_url,:notes)');
             $statement->execute($this->parameters($data));
         } catch(PDOException $exception){$this->translate($exception);throw $exception;}
         return $this->findById((int)$this->connection()->lastInsertId())??throw new \RuntimeException('Created project could not be loaded.');
@@ -60,7 +97,7 @@ final class PdoProjectRepository implements ProjectRepository
         $sql='UPDATE projects SET acronym=:acronym,title=:title,description=:description,internal_code=:internal_code,
             grant_agreement_number=:grant_agreement_number,funding_agency=:funding_agency,funding_programme=:funding_programme,
             coordinator_organization=:coordinator_organization,manager_person_id=:manager_person_id,start_date=:start_date,
-            end_date=:end_date,status=:status,total_budget=:total_budget,currency=:currency,website_url=:website_url,notes=:notes WHERE id=:id';
+            end_date=:end_date,status=:status,total_budget=:total_budget,currency=:currency,hours_per_pm=:hours_per_pm,website_url=:website_url,notes=:notes WHERE id=:id';
         $parameters=['id'=>$id]+$this->parameters($data);
         if($requiredManagerPersonId!==null){$sql.=' AND manager_person_id=:required_manager';$parameters['required_manager']=$requiredManagerPersonId;}
         try{$statement=$this->connection()->prepare($sql);$statement->execute($parameters);}
@@ -111,7 +148,7 @@ final class PdoProjectRepository implements ProjectRepository
         'grant_agreement_number'=>$d['grant_agreement_number'],'funding_agency'=>$d['funding_agency'],'funding_programme'=>$d['funding_programme'],
         'coordinator_organization'=>$d['coordinator_organization'],'manager_person_id'=>$d['manager_person_id'],
         'start_date'=>$d['start_date'],'end_date'=>$d['end_date'],'status'=>$d['status'],'total_budget'=>$d['total_budget'],
-        'currency'=>$d['currency'],'website_url'=>$d['website_url'],'notes'=>$d['notes'],
+        'currency'=>$d['currency'],'hours_per_pm'=>$d['hours_per_pm'],'website_url'=>$d['website_url'],'notes'=>$d['notes'],
     ];}
     private function exists(string $column,string $value,?int $exceptId):bool{$sql="SELECT COUNT(*) FROM projects WHERE $column=:value";$p=['value'=>$value];if($exceptId!==null){$sql.=' AND id<>:id';$p['id']=$exceptId;}$s=$this->connection()->prepare($sql);$s->execute($p);return(int)$s->fetchColumn()>0;}
     private function where(array $f):array
@@ -139,7 +176,8 @@ final class PdoProjectRepository implements ProjectRepository
         (string)$r['status'],$r['total_budget']===null?null:(string)$r['total_budget'],$r['currency']===null?null:(string)$r['currency'],
         $r['website_url']===null?null:(string)$r['website_url'],$r['notes']===null?null:(string)$r['notes'],
         new DateTimeImmutable((string)$r['created_at']),new DateTimeImmutable((string)$r['updated_at']),
-        $r['manager_name']===null?null:(string)$r['manager_name'],$r['manager_email']===null?null:(string)$r['manager_email']
+        $r['manager_name']===null?null:(string)$r['manager_name'],$r['manager_email']===null?null:(string)$r['manager_email'],
+        (string)($r['hours_per_pm']??'125.00')
     );}
     private function translate(PDOException $e):void
     {

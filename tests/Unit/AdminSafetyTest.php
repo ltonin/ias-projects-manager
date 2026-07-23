@@ -11,6 +11,8 @@ use App\Models\User;
 use App\Services\AuthenticationService;
 use App\Services\UserService;
 use App\Validation\UserValidator;
+use App\Validation\PersonValidator;
+use Tests\Fakes\InMemoryPersonRepository;
 use PHPUnit\Framework\TestCase;
 use Tests\Fakes\InMemoryUserRepository;
 use Tests\Support\UserFactory;
@@ -46,7 +48,7 @@ final class AdminSafetyTest extends TestCase
 
     public function testCreatingASecondAdministratorIsBlocked(): void
     {
-        $this->expectException(AdminSafetyException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->service([UserFactory::make()])->create([
             'username' => 'second.admin',
             'email' => 'second@example.test',
@@ -55,6 +57,7 @@ final class AdminSafetyTest extends TestCase
             'role' => User::ROLE_ADMIN,
             'is_active' => '1',
             'password' => 'correct horse battery staple',
+            'password_confirmation' => 'correct horse battery staple',
         ]);
     }
 
@@ -68,6 +71,7 @@ final class AdminSafetyTest extends TestCase
             'role' => User::ROLE_PROJECT_MANAGER,
             'is_active' => '1',
             'password' => 'correct horse battery staple',
+            'password_confirmation' => 'correct horse battery staple',
         ]);
 
         self::assertTrue($created->isProjectManager());
@@ -77,7 +81,7 @@ final class AdminSafetyTest extends TestCase
     private function service(array $users): UserService
     {
         $repository = new InMemoryUserRepository($users);
-        return new UserService($repository, new UserValidator(12), new AuthenticationService($repository, new AuthSession(new SessionManager(), 1800, 28800)));
+        return new UserService($repository,new UserValidator(12),new AuthenticationService($repository,new AuthSession(new SessionManager(),1800,28800)),new InMemoryPersonRepository(),new PersonValidator());
     }
 
     /** @return array<string, string> */

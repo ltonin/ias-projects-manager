@@ -38,6 +38,7 @@ final class Person
         public readonly DateTimeImmutable $createdAt,
         public readonly DateTimeImmutable $updatedAt,
         public readonly ?string $linkedUsername = null,
+        public readonly string $defaultMonthlyCapacityHours = '125.00',
     ) {
     }
 

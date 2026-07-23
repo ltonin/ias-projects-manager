@@ -12,5 +12,11 @@ final class ProjectValidatorTest extends TestCase
         ['total_budget'=>'-1','currency'=>'EUR'],['total_budget'=>'1.234','currency'=>'EUR'],['total_budget'=>'1','currency'=>''],['total_budget'=>'','currency'=>'EUR'],
         ['currency'=>'EU','total_budget'=>'1'],['website_url'=>'javascript:alert(1)'],['description'=>str_repeat('d',5001)],['notes'=>str_repeat('n',5001)]
     ]as$bad)self::assertNotSame([],$v->validate($this->valid($bad)));}
-    /** @param array<string,string> $o @return array<string,string> */private function valid(array $o=[]):array{return$o+['acronym'=>'TEST','title'=>'Test project','description'=>'','internal_code'=>'','grant_agreement_number'=>'','funding_agency'=>'','funding_programme'=>'','coordinator_organization'=>'','manager_person_id'=>'','start_date'=>'','end_date'=>'','status'=>'planned','total_budget'=>'','currency'=>'','website_url'=>'','notes'=>''];}
+    public function testHoursPerPersonMonthValidation():void
+    {
+        $validator=new ProjectValidator();
+        foreach(['0.01','1','125.00','999999.99']as$value)self::assertArrayNotHasKey('hours_per_pm',$validator->validate($this->valid(['hours_per_pm'=>$value])));
+        foreach(['','0','0.00','-1','125.001','1000000','1e2']as$value)self::assertArrayHasKey('hours_per_pm',$validator->validate($this->valid(['hours_per_pm'=>$value])));
+    }
+    /** @param array<string,string> $o @return array<string,string> */private function valid(array $o=[]):array{return$o+['acronym'=>'TEST','title'=>'Test project','description'=>'','internal_code'=>'','grant_agreement_number'=>'','funding_agency'=>'','funding_programme'=>'','coordinator_organization'=>'','manager_person_id'=>'','start_date'=>'','end_date'=>'','status'=>'planned','total_budget'=>'','currency'=>'','hours_per_pm'=>'125.00','website_url'=>'','notes'=>''];}
 }

@@ -92,11 +92,13 @@ final class PersonService
             'active_from' => $this->nullable(trim((string) ($input['active_from'] ?? ''))),
             'active_to' => $this->nullable(trim((string) ($input['active_to'] ?? ''))),
             'is_active' => (string) ($input['is_active'] ?? '') === '1',
+            'default_monthly_capacity_hours'=>$this->canonicalDecimal((string)($input['default_monthly_capacity_hours']??'125.00')),
             'notes' => $this->nullable(trim((string) ($input['notes'] ?? ''))),
         ];
     }
 
     private function nullable(string $value): ?string { return $value === '' ? null : $value; }
+    private function canonicalDecimal(string$value):string{$value=trim($value);if(!str_contains($value,'.'))return$value.'.00';return strlen(substr(strrchr($value,'.')?:'',1))===1?$value.'0':$value;}
     private function userId(mixed $value): ?int
     {
         $string = trim((string) $value);

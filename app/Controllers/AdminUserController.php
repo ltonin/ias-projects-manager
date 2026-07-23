@@ -10,10 +10,13 @@ use App\Exceptions\AdminSafetyException;
 use App\Exceptions\DuplicateEmailException;
 use App\Exceptions\DuplicateUsernameException;
 use App\Exceptions\HttpException;
+use App\Exceptions\DuplicatePersonEmailException;
+use App\Exceptions\UserAlreadyLinkedException;
 use App\Http\Request;
 use App\Http\Response;
 use App\Models\User;
 use App\Repositories\UserRepository;
+use App\Repositories\PersonRepository;
 use App\Services\UserService;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
@@ -27,6 +30,7 @@ final class AdminUserController
         private readonly Authorization $authorization,
         private readonly UserRepository $users,
         private readonly UserService $service,
+        private readonly PersonRepository $people,
         private readonly Csrf $csrf,
         private readonly Flash $flash,
         private readonly UrlGenerator $urls,
@@ -64,6 +68,10 @@ final class AdminUserController
             return $this->form('Create user', 'create', null, ['email' => 'That email address is already in use.'], $input, 422);
         } catch (DuplicateUsernameException) {
             return $this->form('Create user', 'create', null, ['username' => 'That username is already in use.'], $input, 422);
+        } catch (DuplicatePersonEmailException|UserAlreadyLinkedException $exception) {
+            return $this->form('Create user','create',null,['linked_person_id'=>$exception->getMessage()],$input,422);
+        } catch (\InvalidArgumentException) {
+            return $this->form('Create user','create',null,['linked_person_id'=>'The User and Person information is no longer valid. Review the form.'],$input,422);
         }
         $this->flash->add('success', 'User created.');
         return Response::redirect($this->urls->to('/admin/users'));
@@ -163,6 +171,8 @@ final class AdminUserController
             'errors' => $errors,
             'values' => $values,
             'roles' => $user?->isAdmin() ? [User::ROLE_ADMIN] : User::MANAGEABLE_ROLES,
+            'availablePeople'=>$mode==='create'?$this->people->search(['search'=>'','active'=>'all','internal'=>'all','position_type'=>'','linked'=>'unlinked'],1,200)->items:[],
+            'linkedPerson'=>$user===null?null:$this->people->findByUserId($user->id),
             'csrfToken' => $this->csrf->token(),
         ]), $status);
     }
@@ -170,6 +180,6 @@ final class AdminUserController
     /** @return array<string, string> */
     private function emptyValues(): array
     {
-        return ['username' => '', 'first_name' => '', 'last_name' => '', 'email' => '', 'role' => User::ROLE_PARTICIPANT, 'is_active' => '1'];
+        return ['username' => '', 'first_name' => '', 'last_name' => '', 'email' => '', 'role' => User::ROLE_PARTICIPANT, 'is_active' => '1','linked_person_id'=>''];
     }
 }

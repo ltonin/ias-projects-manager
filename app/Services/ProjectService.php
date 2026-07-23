@@ -11,13 +11,14 @@ use App\Models\Project;
 use App\Models\ProjectPage;
 use App\Models\User;
 use App\Repositories\ProjectRepository;
+use App\Repositories\WorkPackageRepository;
 use App\Validation\ProjectValidator;
 
 final class ProjectService
 {
     public const DEFAULT_PER_PAGE=25;
     public const MAX_PER_PAGE=100;
-    public function __construct(private readonly ProjectRepository $projects,private readonly ProjectValidator $validator,private readonly ProjectPolicy $policy){}
+    public function __construct(private readonly ProjectRepository $projects,private readonly ProjectValidator $validator,private readonly ProjectPolicy $policy,private readonly ?WorkPackageRepository $workPackages=null){}
 
     /** @param array<string,mixed> $input @return array<string,string> */
     public function validate(array $input,?int $exceptId=null):array
@@ -26,6 +27,12 @@ final class ProjectService
         $checks=['acronym'=>'acronymExists','internal_code'=>'internalCodeExists','grant_agreement_number'=>'grantAgreementNumberExists'];
         foreach($checks as $field=>$method){$v=$this->nullable(trim((string)($input[$field]??'')));if($v!==null&&!isset($e[$field])&&$this->projects->$method($v,$exceptId))$e[$field]='That '.str_replace('_',' ',$field).' is already in use.';}
         $manager=$this->personId($input['manager_person_id']??null);if($manager!==null&&!isset($e['manager_person_id'])&&!$this->projects->personExists($manager))$e['manager_person_id']='The selected responsible person no longer exists.';
+        if($exceptId!==null){
+            $start=$this->nullable(trim((string)($input['start_date']??'')));$end=$this->nullable(trim((string)($input['end_date']??'')));
+            if(!isset($e['start_date'])&&!isset($e['end_date'])&&$this->workPackages?->hasDateConflictForProject($exceptId,$start,$end)){
+                $e['start_date']='These project dates would place an existing Work Package outside the project period. Adjust the Work Package dates first.';
+            }
+        }
         return$e;
     }
 
@@ -92,9 +99,16 @@ final class ProjectService
             'manager_person_id'=>$this->personId($i['manager_person_id']??null),'start_date'=>$this->nullable(trim((string)($i['start_date']??''))),
             'end_date'=>$this->nullable(trim((string)($i['end_date']??''))),'status'=>(string)($i['status']??''),
             'total_budget'=>$budget,'currency'=>$budget===null?null:strtoupper(trim((string)($i['currency']??''))),
+            'hours_per_pm'=>$this->canonicalDecimal((string)($i['hours_per_pm']??'125.00')),
             'website_url'=>$this->nullable(trim((string)($i['website_url']??''))),'notes'=>$this->nullable(trim((string)($i['notes']??''))),
         ];
     }
     private function nullable(string $v):?string{return$v===''?null:$v;}
     private function personId(mixed $v):?int{$s=trim((string)$v);return$s===''?null:(int)$s;}
+    private function canonicalDecimal(string $value):string
+    {
+        $value=trim($value);
+        if(!str_contains($value,'.'))return$value.'.00';
+        return strlen(substr(strrchr($value,'.')?:'',1))===1?$value.'0':$value;
+    }
 }

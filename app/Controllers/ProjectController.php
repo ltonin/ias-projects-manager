@@ -16,6 +16,9 @@ use App\Models\Project;
 use App\Models\User;
 use App\Repositories\ProjectRepository;
 use App\Repositories\ProjectParticipantRepository;
+use App\Repositories\PersonHourAllocationRepository;
+use App\Repositories\WorkPackageRepository;
+use App\Support\PersonMonthConverter;
 use App\Services\ProjectService;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
@@ -26,7 +29,8 @@ final class ProjectController
     public function __construct(
         private readonly Request $request,private readonly View $view,private readonly Authorization $authorization,
         private readonly CurrentPerson $currentPerson,private readonly ProjectPolicy $policy,private readonly ProjectRepository $projects,
-        private readonly ProjectParticipantRepository $participants,private readonly ProjectService $service,private readonly Csrf $csrf,private readonly Flash $flash,private readonly UrlGenerator $urls
+        private readonly ProjectParticipantRepository $participants,private readonly PersonHourAllocationRepository $allocations,
+        private readonly PersonMonthConverter $converter,private readonly ProjectService $service,private readonly Csrf $csrf,private readonly Flash $flash,private readonly UrlGenerator $urls,private readonly WorkPackageRepository $workPackages
     ){}
 
     public function index():Response
@@ -51,6 +55,15 @@ final class ProjectController
             'participantTotal'=>$this->participants->countForProject($project->id),
             'activeParticipantTotal'=>$this->participants->countForProject($project->id,true),
             'canManageParticipants'=>$this->policy->canManageParticipants($user,$person,$project),
+            'effortTotals'=>$this->allocations->totalsForProject($project->id),'converter'=>$this->converter,
+            'unifiedEffortTotals'=>$this->allocations->unifiedTotalsForProject($project->id),'divergentEffortCount'=>$this->allocations->divergentCountForProject($project->id),
+            'workPackageSummary'=>$this->workPackages->summaryForProject($project->id),
+            'workPackageTotal'=>$this->workPackages->countForProject($project->id),
+            'activeWorkPackageTotal'=>$this->workPackages->countForProject($project->id,true),
+            'unassignedWorkPackageTotal'=>$this->workPackages->countWithoutResponsibleForProject($project->id),
+            'canManageWorkPackages'=>$this->policy->canManageWorkPackages($user,$person,$project),
+            'workPackageEffortTotals'=>$this->allocations->totalsByWorkPackageForProject($project->id),
+            'unassignedEffortTotals'=>$this->allocations->totalsForUnassignedProject($project->id),
         ]));
     }
     public function createForm():Response
@@ -74,7 +87,13 @@ final class ProjectController
     public function editForm(array $p):Response
     {
         $user=$this->authorization->user();$person=$this->currentPerson->get();$project=$this->find($p);$this->policy->requireEdit($user,$person,$project);
-        return$this->form('Edit project','edit',$project,$user,$person,[],$this->values($project));
+        return$this->form('Edit project','edit',$project,$user,$person,[],$this->values($project),200,$this->contextYear($this->request->query('year')));
+    }
+    /** @param array<string,string> $p */
+    public function configureForm(array $p):Response
+    {
+        $user=$this->authorization->user();$person=$this->currentPerson->get();$project=$this->find($p);$this->policy->requireEdit($user,$person,$project);
+        return$this->form('Configure '.$project->acronym,'edit',$project,$user,$person,[],$this->values($project),200,$this->contextYear($this->request->query('year')),true);
     }
     /** @param array<string,string> $p */
     public function update(array $p):Response
@@ -83,11 +102,12 @@ final class ProjectController
         $input=$this->request->postData();
         if($user->isProjectManager())$input['manager_person_id']=$project->managerPersonId;
         $errors=$this->service->validate($input,$project->id);
-        if($errors!==[])return$this->form('Edit project','edit',$project,$user,$person,$errors,$input,422);
+        $returnYear=$this->contextYear($input['return_year']??null);$configuration=((string)($input['return_configuration']??''))==='1';
+        if($errors!==[])return$this->form($configuration?'Configure '.$project->acronym:'Edit project','edit',$project,$user,$person,$errors,$input,422,$returnYear,$configuration);
         try{$updated=$this->service->update($project,$input,$user,$person);}
-        catch(DuplicateProjectFieldException $e){return$this->form('Edit project','edit',$project,$user,$person,[$e->field=>$e->getMessage()],$input,422);}
+        catch(DuplicateProjectFieldException $e){return$this->form($configuration?'Configure '.$project->acronym:'Edit project','edit',$project,$user,$person,[$e->field=>$e->getMessage()],$input,422,$returnYear,$configuration);}
         $this->flash->add('success',$updated->displayTitle().' was updated.');
-        return Response::redirect($this->urls->to('/projects/'.$updated->id));
+        return Response::redirect($this->urls->to('/projects/'.$updated->id.($configuration?'/configure':''),$returnYear===null?[]:['year'=>$returnYear]));
     }
     /** @param array<string,string> $p */
     public function status(array $p):Response
@@ -103,16 +123,18 @@ final class ProjectController
     private function find(array $p):Project{$id=filter_var($p['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($id===false)throw new HttpException(404,'Project not found.');return$this->projects->findById((int)$id)??throw new HttpException(404,'Project not found.');}
     private function requireCsrf():void{$token=$this->request->post('_csrf');if(!is_string($token)||!$this->csrf->validate($token))throw new HttpException(403,'Invalid CSRF token.');}
     /** @param array<string,string> $errors @param array<string,mixed> $values */
-    private function form(string $title,string $mode,?Project $project,User $user,?\App\Models\Person $person,array $errors,array $values,int $status=200):Response
+    private function form(string $title,string $mode,?Project $project,User $user,?\App\Models\Person $person,array $errors,array $values,int $status=200,?int$returnYear=null,bool$configuration=false):Response
     {
         return new Response($this->view->render('projects/form',[
             'title'=>$title,'mode'=>$mode,'project'=>$project,'user'=>$user,'person'=>$person,'errors'=>$errors,'values'=>$values,
             'statusLabels'=>Project::STATUS_LABELS,'managerOptions'=>$user->isAdmin()?$this->projects->managerOptions():[],
-            'csrfToken'=>$this->csrf->token(),
+            'hasAllocations'=>$project!==null&&$this->allocations->totalsForProject($project->id)->allocationCount>0,
+            'csrfToken'=>$this->csrf->token(),'returnYear'=>$returnYear,'configurationMode'=>$configuration,
         ]),$status);
     }
+    private function contextYear(mixed$value):?int{$year=filter_var($value,FILTER_VALIDATE_INT,['options'=>['min_range'=>2000,'max_range'=>2100]]);return$year===false?null:(int)$year;}
     /** @return array<string,string> */
-    private function emptyValues():array{return['acronym'=>'','title'=>'','description'=>'','internal_code'=>'','grant_agreement_number'=>'','funding_agency'=>'','funding_programme'=>'','coordinator_organization'=>'','manager_person_id'=>'','start_date'=>'','end_date'=>'','status'=>'planned','total_budget'=>'','currency'=>'','website_url'=>'','notes'=>''];}
+    private function emptyValues():array{return['acronym'=>'','title'=>'','description'=>'','internal_code'=>'','grant_agreement_number'=>'','funding_agency'=>'','funding_programme'=>'','coordinator_organization'=>'','manager_person_id'=>'','start_date'=>'','end_date'=>'','status'=>'planned','total_budget'=>'','currency'=>'','hours_per_pm'=>'125.00','website_url'=>'','notes'=>''];}
     /** @return array<string,string> */
-    private function values(Project $p):array{return['acronym'=>$p->acronym,'title'=>$p->title,'description'=>$p->description??'','internal_code'=>$p->internalCode??'','grant_agreement_number'=>$p->grantAgreementNumber??'','funding_agency'=>$p->fundingAgency??'','funding_programme'=>$p->fundingProgramme??'','coordinator_organization'=>$p->coordinatorOrganization??'','manager_person_id'=>$p->managerPersonId===null?'':(string)$p->managerPersonId,'start_date'=>$p->startDate?->format('Y-m-d')??'','end_date'=>$p->endDate?->format('Y-m-d')??'','status'=>$p->status,'total_budget'=>$p->totalBudget??'','currency'=>$p->currency??'','website_url'=>$p->websiteUrl??'','notes'=>$p->notes??''];}
+    private function values(Project $p):array{return['acronym'=>$p->acronym,'title'=>$p->title,'description'=>$p->description??'','internal_code'=>$p->internalCode??'','grant_agreement_number'=>$p->grantAgreementNumber??'','funding_agency'=>$p->fundingAgency??'','funding_programme'=>$p->fundingProgramme??'','coordinator_organization'=>$p->coordinatorOrganization??'','manager_person_id'=>$p->managerPersonId===null?'':(string)$p->managerPersonId,'start_date'=>$p->startDate?->format('Y-m-d')??'','end_date'=>$p->endDate?->format('Y-m-d')??'','status'=>$p->status,'total_budget'=>$p->totalBudget??'','currency'=>$p->currency??'','hours_per_pm'=>$p->hoursPerPm,'website_url'=>$p->websiteUrl??'','notes'=>$p->notes??''];}
 }

@@ -11,7 +11,7 @@ The application is a small, custom, server-rendered PHP system rather than a gen
 5. Services enforce application rules; repository implementations own SQL.
 6. `View` renders a content template inside a layout; the response is sent by the front controller.
 
-Exceptions become generic 403/404/405/500 pages. Production logs details through PHP while returning no trace or sensitive data.
+Exceptions become generic 403/404/405/409/500 pages. Production logs details through PHP while returning no trace or sensitive data.
 
 ## Responsibilities and dependency direction
 
@@ -53,6 +53,10 @@ Templates receive explicit data, contain no application logic, and escape dynami
 
 `User` represents credentials, username, application role, and account status. `Person` represents a potential research participant and contains no authentication or authorization data. `people.user_id` is optional and unique with `ON DELETE SET NULL`.
 
+Administrative User creation is one atomic use case. The administrator may explicitly select an unlinked Person; otherwise the application creates a Person, inserts the User, and links both records in one database transaction. A failure at any stage rolls back both records. Automatically created People copy the User's name and email once, use `other` as position, external status, no affiliation or active dates, and the standard 125-hour monthly capacity. Subsequent User edits never synchronize Person data.
+
+`people.user_id` remains protected by its unique key and foreign key, so one User cannot be linked to multiple People and links cannot dangle. The existing `ON DELETE SET NULL` behavior is retained for safe account deletion; consequently the database alone cannot guarantee that every User always has a Person. Application creation and the explicit `backfill-user-people.php` deployment command enforce the operational invariant. There are no intentionally exempt account categories.
+
 ```text
 users
   0..1
@@ -78,11 +82,45 @@ people 1 --- * project_participants * --- 1 projects
 
 `ProjectParticipantService` validates project/person boundaries and use cases. `PdoProjectParticipantRepository` owns joined search, filters, pagination, uniqueness-race translation, and write-time ownership conditions. Participant list objects and unauthorized detail models omit notes. Ownership never creates, changes, or removes participant rows.
 
-The future allocation relationship is intentionally not implemented:
+Adding an existing active Person creates only a project-level `project_participants` relationship. It does not create Work Package membership or person-hour allocations: the annual grid derives its Work Package × participant empty cells in memory, so the participant is immediately visible with empty hours. The repository locks and rechecks the project, manager ownership, Person eligibility, and duplicate invariant in one transaction; the database unique key on `(project_id, person_id)` remains the final race-safe guard.
+
+Existing-project maintenance is organized under `/projects/{id}/configure`. Its server-rendered navigation connects project metadata, the Work Package registry, and the participant registry without duplicating their controllers or domain services. Project details post through `ProjectService`; Work Packages use `WorkPackageService`; participants use `ProjectParticipantService`. The owning project manager or administrator is re-authorized by `ProjectPolicy` for every write, and child records are checked against the route project before editing. Configuration return context carries the selected year but never changes effort data.
+
+Monthly effort uses the participant relationship:
 
 ```text
-project_participants 1 --- * person_month_allocations
+project_participants 1 --- * person_hour_allocations
 ```
+
+Person-hours are the persisted source of truth. `PersonMonthConverter` derives three-decimal PM equivalents from the current project `hours_per_pm` using integer minor units, never binary floating point. Allocation repositories own period filters and SQL aggregates; allocation writes repeat project ownership in SQL. Participant removal consults allocation existence and preserves historical relationships.
+
+`people.default_monthly_capacity_hours` and sparse `person_month_capacity_overrides` provide person-level availability. `PersonCapacityService` resolves override precedence and builds annual summaries from a bounded override query plus one SQL allocation aggregation. `DecimalHours` performs subtraction and comparison in integer hundredths. Capacity warnings are informational and do not participate in allocation validation.
+
+The global capacity overview uses three bounded queries: authorized People, all selected-year overrides for their IDs, and all selected-year allocation totals for their IDs. Administrators receive the complete Person registry. Project managers receive themselves and People participating in projects they manage. Other roles retain only their own single-Person capacity page.
+
+The global annual overview first selects the authorization-and-year intersection in SQL. Project dates use an inclusive end date and a half-open calendar boundary: `(start_date IS NULL OR start_date < next_year_01_01) AND (end_date IS NULL OR end_date >= year_01_01)`. A missing start means open toward the past and a missing end means open toward the future. Status does not remove historical, suspended, completed, or cancelled projects when their dates overlap.
+
+Future allocation classification may optionally connect a person-hour allocation to a Work Package. Its model and integrity rules will be defined before a spreadsheet-like annual effort grid; no speculative allocation column is added in Milestone 8A.
+
+Work Packages now form `projects 1 --- * work_packages`, with optional responsibility represented by `project_participants 1 --- 0..* work_packages`. `WorkPackageService` owns normalization, date and participant validation, current-ownership checks, and removal behavior. Conditional repository writes repeat both ownership and same-project responsibility constraints. Work Package list models always omit notes; unauthorized detail models are copied without notes.
+
+Milestone 8B connects each allocation optionally to a Work Package:
+
+```text
+person_hour_allocations * --- 0..1 work_packages
+```
+
+`NULL` now represents transitional legacy-unassigned effort only. Classified create/update paths require a positive same-project Work Package. A separate repository operation conditionally updates only normalized legacy rows in place, derives `work_package_key`, repeats hierarchy/ownership checks, and lets the unique constraint reject duplicate targets. Project, participant, person, and capacity totals continue to sum all rows; classified WP/grid totals exclude legacy rows.
+
+Milestone 9 assembles an `AnnualEffortPage` as Work Packages → every project participant → 12 month cells. `PdoAnnualEffortRepository` loads classified rows, unassigned summary, and bulk capacity data with a fixed number of queries; empty Cartesian cells are application objects only. It never inserts placeholder allocations.
+
+Bulk writes validate server-derived participant and Work Package allow-lists, then lock the project and classified year rows inside one transaction. A SHA-256 snapshot over allocation identity, timestamps, both stored values, and Work Package identity provides optimistic concurrency. The unified grid value is copied atomically to both `planned_hours` and `actual_hours`; note-bearing empty rows are retained. Divergent rows are rejected by the write repository and remain detail-only reconciliation records.
+
+`annual-effort-decimal.js` provides pure integer-hundredths parsing, semantic equality, formatting, and server-equivalent PM rounding. `annual-effort.js` incrementally recalculates the changed participant row, its containing Work Package, and unified project roll-ups; it never submits totals. Event delegation avoids per-cell listeners. Non-sensitive month, expansion, and scroll context uses session storage keyed by project/year; allocation contents are never stored.
+
+The page model classifies each row as equal or divergent. Only equal values contribute once to unified participant/WP/project/PM/capacity summaries. Divergent values contribute neither planned nor actual to those summaries and carry explicit resolution links. Shared `<colgroup>` definitions and common cell containers align every WP and project total structurally.
+
+Work Package repositories apply one shared `NaturalCodeOrder` after deterministic ID retrieval. Registry pagination is sliced after natural ordering, and the same ordered option set drives allocation forms and annual-grid sections.
 
 ## Why no full framework
 
@@ -97,3 +135,14 @@ The hosting target cannot run Composer or commands and must be deployable throug
 - Do not hard-code paths/hosts or leak exception detail.
 - Add an independent, documented SQL migration for every schema change.
 - Do not add production dependencies or abstractions without a concrete repeated need.
+# Workflow-oriented presentation (Milestone 11)
+
+`NavigationService` supplies authorization-filtered sidebar context to the shared SSR layout. `GlobalAnnualOverviewService` builds a dedicated read-only page model from a bounded accessible-project query, one hierarchy query, and one warnings query. This prevents the controller-loop N+1 pattern. The main project URL renders the existing annual model without write metadata; `/projects/{id}/effort/edit` is the explicit server-rendered editing state.
+
+`ProjectCreationController` keeps incomplete wizard state in the authenticated PHP session. `ProjectCreationWorkflowService` performs the final project/WP/participant inserts on one PDO connection and rolls the transaction back on any failure.
+
+## Milestone 11.1 width and sidebar correction
+
+Global, project read-only, project edit, WP-total, and project-total tables all use `.effort-table` and the same colgroup classes. Desktop tables are `width: 100%`, `min-width: 0`, and fixed-layout. The hierarchy/annual budgets are 240/88px above 1500px and 208/80px from 769–1500px; months divide the remaining width. Inputs explicitly use `width: 100%`, `min-width: 0`, and `max-width: 100%`. Only `.effort-grid` and `.project-total-table` own the narrow-screen horizontal fallback.
+
+Bootstrap’s `.offcanvas-md` desktop rule can make the sidebar background transparent with `!important`. `.app-sidebar` therefore defines the application’s explicit dark background with equivalent priority; foreground, muted, hover, active, and focus colors are centralized CSS variables.

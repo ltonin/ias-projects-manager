@@ -26,6 +26,8 @@ final class ProjectValidator
         if(($budget==='')!==($currency===''))$e[$budget===''?'total_budget':'currency']='Budget and currency must be provided together.';
         if($currency!==''&&preg_match('/^[A-Z]{3}$/',$currency)!==1)$e['currency']='Currency must contain exactly three letters.';
         $url=trim((string)($input['website_url']??''));if($url!==''&&(!$this->httpUrl($url)))$e['website_url']='Enter a valid absolute HTTP or HTTPS URL.';
+        $hours=trim((string)($input['hours_per_pm']??'125.00'));
+        if($hours===''||preg_match('/^(?:0\\.(?:0[1-9]|[1-9]\\d)|[1-9]\\d{0,5}(?:\\.\\d{1,2})?)$/',$hours)!==1)$e['hours_per_pm']='Hours per Person-Month must be greater than zero, at most 999999.99, with no more than two decimal places.';
         return$e;
     }
     private function requiredLength(array &$e,array $i,string $f,string $label,int $max):void{$v=trim((string)($i[$f]??''));if($v==='')$e[$f]=$label.' is required.';elseif(strlen($v)>$max)$e[$f]="$label must not exceed $max characters.";}

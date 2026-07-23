@@ -16,6 +16,12 @@ interface UserRepository
     public function all(): array;
     /** @param array{username:string,email:string,password_hash:string,first_name:string,last_name:string,role:string,is_active:bool} $data */
     public function create(array $data): User;
+    /**
+     * Atomically creates a user and links either a new Person or the explicitly selected unlinked Person.
+     * @param array{username:string,email:string,password_hash:string,first_name:string,last_name:string,role:string,is_active:bool} $userData
+     * @param array<string,mixed>|null $newPersonData
+     */
+    public function createWithPerson(array $userData,?array $newPersonData,?int $existingPersonId):User;
     /** @param array{username:string,email:string,first_name:string,last_name:string,role:string,is_active:bool,acting_user_id:int,password_hash?:string} $data */
     public function update(int $id, array $data): User;
     public function updatePasswordHash(int $id, string $passwordHash): void;

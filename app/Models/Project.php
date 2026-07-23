@@ -38,6 +38,7 @@ final class Project
         public readonly DateTimeImmutable $updatedAt,
         public readonly ?string $managerName = null,
         public readonly ?string $managerEmail = null,
+        public readonly string $hoursPerPm = '125.00',
     ) {
     }
 
@@ -58,6 +59,6 @@ final class Project
         return new self($this->id,$this->acronym,$this->title,$this->description,$this->internalCode,$this->grantAgreementNumber,
             $this->fundingAgency,$this->fundingProgramme,$this->coordinatorOrganization,$this->managerPersonId,$this->startDate,
             $this->endDate,$this->status,$this->totalBudget,$this->currency,$this->websiteUrl,null,$this->createdAt,$this->updatedAt,
-            $this->managerName,$this->managerEmail);
+            $this->managerName,$this->managerEmail,$this->hoursPerPm);
     }
 }

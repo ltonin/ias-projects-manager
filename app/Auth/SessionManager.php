@@ -30,4 +30,8 @@ final class SessionManager
             session_regenerate_id(true);
         }
     }
+
+    public function get(string$key,mixed$default=null):mixed{return$_SESSION[$key]??$default;}
+    public function put(string$key,mixed$value):void{$_SESSION[$key]=$value;}
+    public function remove(string$key):void{unset($_SESSION[$key]);}
 }

@@ -1,0 +1,45 @@
+<!doctype html><meta charset="utf-8"><title>Annual effort browser fixture</title><link rel="stylesheet" href="../../public/assets/css/app.css">
+<script src="../../public/assets/js/annual-effort-decimal.js"></script>
+<form data-participant-form data-project-start="2027-01-01" data-project-end="2027-12-31"><select id="person_id"><option value=""></option><option value="1" data-active-from="2027-03-01" data-active-to="2027-10-31">Person</option></select><input id="participation_start" value="2027-01-01"><input id="participation_end" value="2027-12-31"></form>
+<script src="../../public/assets/js/app.js"></script>
+<div id="annual-effort-grid" data-project-id="1" data-year="2027" data-hours-per-pm="125.00" data-has-error="0">
+<select data-month-focus><option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select><button data-month-previous></button><button data-month-next></button>
+<button data-expand-all></button><button data-collapse-all></button><select data-wp-jump></select>
+<div data-grid-filters><input data-filter-participant><select data-filter-role><option value=""></option></select><input data-filter-wp><select data-filter-wp-active><option value=""></option></select><select data-filter-state><option value=""></option></select></div><button data-reset-filters></button>
+<form data-effort-form><details open data-wp-id="1" data-wp-active="1" data-wp-text="wp1 test"><summary><span data-wp-annual="1">10.00</span><span data-wp-dirty class="d-none"></span></summary><table><tbody>
+<tr data-participant-row data-participant-id="1" data-participant-name="ada" data-participant-role="researcher" data-has-effort="1" data-capacity-warning="0">
+<td><input id="a1" class="effort-cell" value="10" data-initial="10.00" data-wp="1" data-participant="1" data-month="1"><span data-cell-description></span></td>
+<td><input id="a2" class="effort-cell" value="" data-initial="" data-wp="1" data-participant="1" data-month="2"><span data-cell-description></span></td>
+<td><span data-participant-annual="1-1">10.00</span></td></tr>
+<tr data-participant-row data-participant-id="2" data-participant-name="grace" data-participant-role="engineer" data-has-effort="1" data-capacity-warning="0">
+<td><input id="b1" class="effort-cell" value="0.10" data-initial="0.10" data-wp="1" data-participant="2" data-month="1"><span data-cell-description></span></td>
+<td><input id="b2" class="effort-cell" value="0.20" data-initial="0.20" data-wp="1" data-participant="2" data-month="2"><span data-cell-description></span></td>
+<td><span data-participant-annual="1-2">0.30</span></td></tr>
+</tbody></table>
+<span data-wp-month="1-1">10.10</span><span data-wp-month="1-2">0.20</span>
+<span data-wp-month="1-3">0.00</span><span data-wp-month="1-4">0.00</span><span data-wp-month="1-5">0.00</span><span data-wp-month="1-6">0.00</span><span data-wp-month="1-7">0.00</span><span data-wp-month="1-8">0.00</span><span data-wp-month="1-9">0.00</span><span data-wp-month="1-10">0.00</span><span data-wp-month="1-11">0.00</span><span data-wp-month="1-12">0.00</span><span data-wp-annual-total="1">10.30</span>
+</details>
+<span data-project-month="1">10.10</span><span data-project-month="2">0.20</span><span data-project-month="3">0.00</span><span data-project-month="4">0.00</span><span data-project-month="5">0.00</span><span data-project-month="6">0.00</span><span data-project-month="7">0.00</span><span data-project-month="8">0.00</span><span data-project-month="9">0.00</span><span data-project-month="10">0.00</span><span data-project-month="11">0.00</span><span data-project-month="12">0.00</span><span data-project-annual>10.30</span><span data-project-pm></span>
+<span data-dirty-count>0</span><button data-save-button></button><button data-reset-changes></button><span data-provisional-notice class="d-none"></span>
+</form></div>
+<script src="../../public/assets/js/annual-effort.js"></script>
+<pre id="result">RUNNING</pre><script>
+const root=document.getElementById('annual-effort-grid'),a1=document.getElementById('a1'),a2=document.getElementById('a2'),b1=document.getElementById('b1');
+const checks=[];
+const person=document.getElementById('person_id');person.value='1';person.dispatchEvent(new Event('change'));checks.push(document.getElementById('participation_start').value==='2027-03-01',document.getElementById('participation_end').value==='2027-10-31');
+checks.push(root.querySelector('[data-dirty-count]').textContent==='0'); // 10 and 10.00 equivalent
+a2.value='0.00';a2.dispatchEvent(new Event('input',{bubbles:true}));
+checks.push(a2.dataset.dirty==='1',root.querySelector('[data-dirty-count]').textContent==='1',root.querySelector('[data-participant-annual="1-1"]').textContent==='10.00');
+a2.value='';a2.dispatchEvent(new Event('input',{bubbles:true}));checks.push(a2.dataset.dirty==='0');
+b1.value='0.20';b1.dispatchEvent(new Event('input',{bubbles:true}));
+checks.push(root.querySelector('[data-wp-month="1-1"]').textContent==='10.20',root.querySelector('[data-project-annual]').textContent==='10.40',root.querySelector('[data-project-pm]').textContent==='0.083 PM');
+a1.focus();a1.setSelectionRange(a1.value.length,a1.value.length);a1.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));checks.push(document.activeElement===a2);
+a2.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',shiftKey:true,bubbles:true}));checks.push(document.activeElement===a1);
+a1.setSelectionRange(1,1);a1.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));checks.push(document.activeElement===a1,a1.selectionStart===1);
+a1.setSelectionRange(a1.value.length,a1.value.length);a1.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));checks.push(document.activeElement===b1);
+root.querySelector('[data-filter-participant]').value='nobody';root.querySelector('[data-filter-participant]').dispatchEvent(new Event('input',{bubbles:true}));checks.push(b1.closest('tr').hidden===false);
+root.querySelector('[data-collapse-all]').click();checks.push(root.querySelector('[data-wp-id]').open===false);root.querySelector('[data-expand-all]').click();checks.push(root.querySelector('[data-wp-id]').open===true);
+root.querySelector('[data-month-focus]').value='1';root.querySelector('[data-month-focus]').dispatchEvent(new Event('change'));root.querySelector('[data-month-next]').click();checks.push(root.querySelector('[data-month-focus]').value==='2',b1.value==='0.20');
+window.confirm=()=>true;root.querySelector('[data-reset-changes]').click();checks.push(b1.value==='0.10',root.querySelector('[data-dirty-count]').textContent==='0');
+document.getElementById('result').textContent=checks.every(Boolean)?'ANNUAL_EFFORT_BROWSER_OK':'ANNUAL_EFFORT_BROWSER_FAILED '+JSON.stringify(checks);
+</script>

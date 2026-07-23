@@ -67,6 +67,7 @@ final class InMemoryPersonRepository implements PersonRepository
             'position_type'=>$person->positionType,'is_internal'=>$person->isInternal,
             'active_from'=>$person->activeFrom?->format('Y-m-d'),'active_to'=>$person->activeTo?->format('Y-m-d'),
             'is_active'=>$active,'notes'=>$person->notes,
+            'default_monthly_capacity_hours'=>$person->defaultMonthlyCapacityHours,
         ];
         return $this->people[$id] = $this->make($id, $data);
     }
@@ -86,12 +87,16 @@ final class InMemoryPersonRepository implements PersonRepository
         return array_values(array_filter($this->users, fn (UserLinkOption $user): bool => !$this->userIsLinked($user->id, $currentPersonId)));
     }
     public function count(): int { return count($this->people); }
+    public function capacityScope(string $role,?int$managerPersonId):array
+    {
+        $items=array_values($this->people);usort($items,static fn(Person$a,Person$b):int=>[$a->lastName,$a->firstName,$a->id]<=>[$b->lastName,$b->firstName,$b->id]);return$items;
+    }
 
     /** @param array<string,mixed> $data */
     private function make(int $id, array $data): Person
     {
         $now = new DateTimeImmutable('2026-01-01');
         $username = $data['user_id'] === null ? null : ($this->users[$data['user_id']]->username ?? null);
-        return new Person($id, $data['user_id'], $data['first_name'], $data['last_name'], $data['institutional_email'], $data['affiliation'], $data['position_type'], $data['is_internal'], $data['active_from']===null?null:new DateTimeImmutable($data['active_from']), $data['active_to']===null?null:new DateTimeImmutable($data['active_to']), $data['is_active'], $data['notes'], $now, $now, $username);
+        return new Person($id, $data['user_id'], $data['first_name'], $data['last_name'], $data['institutional_email'], $data['affiliation'], $data['position_type'], $data['is_internal'], $data['active_from']===null?null:new DateTimeImmutable($data['active_from']), $data['active_to']===null?null:new DateTimeImmutable($data['active_to']), $data['is_active'], $data['notes'], $now, $now, $username,$data['default_monthly_capacity_hours']??'125.00');
     }
 }

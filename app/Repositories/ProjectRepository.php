@@ -11,6 +11,10 @@ use App\Models\ProjectPage;
 interface ProjectRepository
 {
     public function findById(int $id): ?Project;
+    /** @return list<Project> */
+    public function accessibleFor(string $role, ?int $personId, int $limit = 200): array;
+    /** @return list<Project> */
+    public function accessibleForYear(string $role, ?int $personId, int $year, int $limit = 200): array;
     /** @param array{search:string,status:string,manager_person_id:string,funding_agency:string,funding_programme:string} $filters */
     public function search(array $filters, int $page, int $perPage): ProjectPage;
     /** @param array<string,mixed> $data */

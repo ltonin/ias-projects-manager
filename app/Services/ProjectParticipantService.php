@@ -14,6 +14,10 @@ use App\Models\User;
 use App\Repositories\PersonRepository;
 use App\Repositories\ProjectParticipantRepository;
 use App\Repositories\ProjectRepository;
+use App\Repositories\PersonHourAllocationRepository;
+use App\Exceptions\ParticipantHasAllocationsException;
+use App\Exceptions\ParticipantResponsibleForWorkPackageException;
+use App\Repositories\WorkPackageRepository;
 use App\Validation\ProjectParticipantValidator;
 
 final class ProjectParticipantService
@@ -27,6 +31,8 @@ final class ProjectParticipantService
         private readonly PersonRepository $people,
         private readonly ProjectParticipantValidator $validator,
         private readonly ProjectPolicy $policy,
+        private readonly ?PersonHourAllocationRepository $allocations = null,
+        private readonly ?WorkPackageRepository $workPackages = null,
     ) {
     }
 
@@ -34,8 +40,8 @@ final class ProjectParticipantService
     public function validateCreate(Project $project, array $input): array
     {
         $personId = $this->positiveId($input['person_id'] ?? null);
-        if ($personId === null || ($person = $this->people->findById($personId)) === null) {
-            return ['person_id' => 'Select an existing person.'];
+        if ($personId === null || ($person = $this->people->findById($personId)) === null || !$person->isActive) {
+            return ['person_id' => 'Select an active eligible person.'];
         }
         $errors = $this->validator->validate($input, $project, $person);
         if ($this->participants->personAlreadyParticipates($project->id, $personId)) {
@@ -58,7 +64,7 @@ final class ProjectParticipantService
     {
         $this->requireCurrentProjectAndAuthorization($project, $user, $currentPerson);
         $personId = $this->positiveId($input['person_id'] ?? null);
-        if ($personId === null || $this->people->findById($personId) === null) throw new \InvalidArgumentException('Person not found.');
+        if ($personId === null || ($selected=$this->people->findById($personId)) === null || !$selected->isActive) throw new \InvalidArgumentException('Select an active eligible person.');
         if ($this->participants->personAlreadyParticipates($project->id, $personId)) {
             throw new \App\Exceptions\DuplicateProjectParticipantException('That person already participates in this project.');
         }
@@ -92,6 +98,8 @@ final class ProjectParticipantService
     {
         $this->assertRelationship($project, $participant);
         $this->requireCurrentProjectAndAuthorization($project, $user, $currentPerson);
+        if($this->allocations?->hasAllocationsForParticipant($participant->id))throw new ParticipantHasAllocationsException('This participant has historical person-hour allocations. Deactivate the participation instead.');
+        if($this->workPackages?->hasResponsibleParticipantReference($participant->id))throw new ParticipantResponsibleForWorkPackageException('This participant is responsible for one or more Work Packages. Assign another responsible participant or clear the responsibility before removal; deactivation remains available.');
         $this->participants->delete(
             $participant->id, $project->id, $user->isProjectManager() ? $currentPerson?->id : null,
         );

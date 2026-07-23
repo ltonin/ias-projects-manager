@@ -8,6 +8,8 @@ use App\Database\ConnectionFactory;
 use App\Exceptions\AdminSafetyException;
 use App\Exceptions\DuplicateEmailException;
 use App\Exceptions\DuplicateUsernameException;
+use App\Exceptions\DuplicatePersonEmailException;
+use App\Exceptions\UserAlreadyLinkedException;
 use App\Models\User;
 use DateTimeImmutable;
 use PDO;
@@ -96,6 +98,45 @@ final class PdoUserRepository implements UserRepository
 
         return $this->findById($id)
             ?? throw new \RuntimeException('Created user could not be loaded.');
+    }
+
+    public function createWithPerson(array$userData,?array$newPersonData,?int$existingPersonId):User
+    {
+        if(($newPersonData===null)===($existingPersonId===null))throw new \InvalidArgumentException('Choose exactly one Person-linking strategy.');
+        $pdo=$this->connection();$pdo->beginTransaction();
+        try{
+            if($existingPersonId!==null){
+                $lock=$pdo->prepare('SELECT user_id FROM people WHERE id=:id FOR UPDATE');$lock->execute(['id'=>$existingPersonId]);$personRow=$lock->fetch(PDO::FETCH_ASSOC);
+                if(!is_array($personRow))throw new \OutOfBoundsException('Selected Person not found.');
+                if($personRow['user_id']!==null)throw new UserAlreadyLinkedException('The selected Person is already linked to a User.');
+                $personId=$existingPersonId;
+            }else{
+                $person=$pdo->prepare('INSERT INTO people
+                    (user_id,first_name,last_name,institutional_email,affiliation,position_type,is_internal,active_from,active_to,is_active,default_monthly_capacity_hours,notes)
+                    VALUES(NULL,:first_name,:last_name,:email,NULL,:position_type,:is_internal,NULL,NULL,:is_active,:capacity,NULL)');
+                $person->execute(['first_name'=>$newPersonData['first_name'],'last_name'=>$newPersonData['last_name'],'email'=>$newPersonData['institutional_email'],
+                    'position_type'=>$newPersonData['position_type'],'is_internal'=>$newPersonData['is_internal']?1:0,'is_active'=>$newPersonData['is_active']?1:0,'capacity'=>$newPersonData['default_monthly_capacity_hours']]);
+                $personId=(int)$pdo->lastInsertId();
+            }
+            if($userData['role']===User::ROLE_ADMIN){
+                $admin=$pdo->prepare('SELECT id FROM users WHERE role=:role FOR UPDATE');$admin->execute(['role'=>User::ROLE_ADMIN]);
+                if($admin->fetchColumn()!==false)throw new AdminSafetyException('An administrator already exists.');
+            }
+            $user=$pdo->prepare('INSERT INTO users(username,email,password_hash,first_name,last_name,role,is_active)
+                VALUES(:username,:email,:password_hash,:first_name,:last_name,:role,:is_active)');
+            $user->execute(['username'=>$userData['username'],'email'=>$userData['email'],'password_hash'=>$userData['password_hash'],
+                'first_name'=>$userData['first_name'],'last_name'=>$userData['last_name'],'role'=>$userData['role'],'is_active'=>$userData['is_active']?1:0]);
+            $userId=(int)$pdo->lastInsertId();
+            $link=$pdo->prepare('UPDATE people SET user_id=:user_id WHERE id=:person_id AND user_id IS NULL');
+            $link->execute(['user_id'=>$userId,'person_id'=>$personId]);
+            if($link->rowCount()!==1)throw new UserAlreadyLinkedException('The selected Person was linked by another request.');
+            $pdo->commit();
+        }catch(PDOException$exception){
+            if($pdo->inTransaction())$pdo->rollBack();$message=strtolower((string)($exception->errorInfo[2]??''));
+            if(str_contains($message,'people_institutional_email_unique'))throw new DuplicatePersonEmailException('That email is already used by a Person.',0,$exception);
+            $this->translateDuplicate($exception);throw$exception;
+        }catch(\Throwable$exception){if($pdo->inTransaction())$pdo->rollBack();throw$exception;}
+        return$this->findById($userId)??throw new \RuntimeException('Created user could not be loaded.');
     }
 
     public function update(int $id, array $data): User

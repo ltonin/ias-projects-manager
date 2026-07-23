@@ -70,10 +70,10 @@ final class PdoPersonRepository implements PersonRepository
             $statement = $this->connection()->prepare(
                 'INSERT INTO people
                  (user_id, first_name, last_name, institutional_email, affiliation, position_type,
-                  is_internal, active_from, active_to, is_active, notes)
+                  is_internal, active_from, active_to, is_active, default_monthly_capacity_hours, notes)
                  VALUES
                  (:user_id, :first_name, :last_name, :institutional_email, :affiliation, :position_type,
-                  :is_internal, :active_from, :active_to, :is_active, :notes)'
+                  :is_internal, :active_from, :active_to, :is_active, :default_monthly_capacity_hours, :notes)'
             );
             $statement->execute($this->parameters($data));
         } catch (PDOException $exception) {
@@ -91,7 +91,7 @@ final class PdoPersonRepository implements PersonRepository
                 'UPDATE people SET user_id = :user_id, first_name = :first_name, last_name = :last_name,
                  institutional_email = :institutional_email, affiliation = :affiliation,
                  position_type = :position_type, is_internal = :is_internal, active_from = :active_from,
-                 active_to = :active_to, is_active = :is_active, notes = :notes WHERE id = :id'
+                 active_to = :active_to, is_active = :is_active, default_monthly_capacity_hours = :default_monthly_capacity_hours, notes = :notes WHERE id = :id'
             );
             $statement->execute(['id' => $id] + $this->parameters($data));
             if ($statement->rowCount() === 0 && $this->findById($id) === null) {
@@ -156,6 +156,20 @@ final class PdoPersonRepository implements PersonRepository
         return (int) $this->connection()->query('SELECT COUNT(*) FROM people')->fetchColumn();
     }
 
+    public function capacityScope(string $role,?int $managerPersonId):array
+    {
+        if($role==='admin'){$sql=$this->selectSql();$parameters=[];}
+        elseif($role==='project_manager'&&$managerPersonId!==null){
+            $sql=$this->selectSql().' WHERE p.id=:manager_id OR EXISTS (
+                SELECT 1 FROM project_participants pp JOIN projects pr ON pr.id=pp.project_id
+                WHERE pp.person_id=p.id AND pr.manager_person_id=:project_manager_id
+            )';$parameters=['manager_id'=>$managerPersonId,'project_manager_id'=>$managerPersonId];
+        }else return[];
+        $sql.=' ORDER BY p.last_name,p.first_name,p.id';
+        $statement=$this->connection()->prepare($sql);$statement->execute($parameters);
+        return array_map(fn(array$row):Person=>$this->hydrate($row),$statement->fetchAll());
+    }
+
     private function connection(): PDO { return $this->pdo ??= $this->connections->create(); }
 
     private function selectSql(): string
@@ -177,6 +191,7 @@ final class PdoPersonRepository implements PersonRepository
             'active_from' => $data['active_from'],
             'active_to' => $data['active_to'],
             'is_active' => $data['is_active'] ? 1 : 0,
+            'default_monthly_capacity_hours' => $data['default_monthly_capacity_hours'],
             'notes' => $data['notes'],
         ];
     }
@@ -247,6 +262,7 @@ final class PdoPersonRepository implements PersonRepository
             new DateTimeImmutable((string) $row['created_at']),
             new DateTimeImmutable((string) $row['updated_at']),
             $row['linked_username'] === null ? null : (string) $row['linked_username'],
+            (string) ($row['default_monthly_capacity_hours'] ?? '125.00'),
         );
     }
 

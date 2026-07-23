@@ -25,4 +25,6 @@ interface PersonRepository
     /** @return list<UserLinkOption> */
     public function availableUsers(?int $currentPersonId = null): array;
     public function count(): int;
+    /** @return list<Person> */
+    public function capacityScope(string $role, ?int $managerPersonId): array;
 }

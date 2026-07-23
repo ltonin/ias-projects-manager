@@ -16,6 +16,8 @@ interface ProjectParticipantRepository
     public function listForProject(int $projectId, array $filters, int $page, int $perPage): ProjectParticipantPage;
     /** @return list<ProjectParticipant> */
     public function summaryForProject(int $projectId, int $limit = 5): array;
+    /** @return list<ProjectParticipant> */
+    public function allForProject(int $projectId):array;
     public function countForProject(int $projectId, ?bool $active = null): int;
     /** @param array<string,mixed> $data */
     public function create(array $data, ?int $requiredManagerPersonId = null): ProjectParticipant;

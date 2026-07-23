@@ -55,6 +55,8 @@ final class PersonValidator
         if ($userId !== '' && filter_var($userId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
             $errors['user_id'] = 'Select a valid linked user.';
         }
+        $capacity=trim((string)($input['default_monthly_capacity_hours']??'125.00'));
+        if(preg_match('/^(?:0|[1-9]\\d{0,5})(?:\\.\\d{1,2})?$/',$capacity)!==1)$errors['default_monthly_capacity_hours']='Standard Monthly Capacity must be between 0.00 and 999999.99 with no more than two decimal places.';
         return $errors;
     }
 

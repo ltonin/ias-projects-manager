@@ -53,6 +53,7 @@ final class InMemoryProjectParticipantRepository implements ProjectParticipantRe
     {
         return array_slice($this->listForProject($projectId, ['search'=>'','active'=>'all','project_role'=>'','internal'=>'all','person_active'=>'all'], 1, $limit)->items, 0, $limit);
     }
+    public function allForProject(int$projectId):array{return$this->summaryForProject($projectId,PHP_INT_MAX);}
     public function countForProject(int $projectId, ?bool $active = null): int
     {
         return count(array_filter($this->participants, static fn (ProjectParticipant $p): bool => $p->projectId === $projectId && ($active === null || $p->isActive === $active)));
@@ -91,7 +92,7 @@ final class InMemoryProjectParticipantRepository implements ProjectParticipantRe
     }
     public function availablePeople(int $projectId): array
     {
-        return array_values(array_filter($this->people, fn (ParticipantPersonOption $person): bool => !$this->personAlreadyParticipates($projectId, $person->id)));
+        return array_values(array_filter($this->people, fn (ParticipantPersonOption $person): bool => $person->isActive&&!$this->personAlreadyParticipates($projectId, $person->id)));
     }
     private function authorize(int $projectId, ?int $requiredManager): void
     {
