@@ -14,6 +14,7 @@ use App\Controllers\AdminUserController;
 use App\Controllers\AdminPersonController;
 use App\Controllers\AuthController;
 use App\Controllers\ProjectController;
+use App\Controllers\ProjectTrashController;
 use App\Controllers\ProjectCreationController;
 use App\Controllers\ProjectParticipantController;
 use App\Controllers\PersonHourAllocationController;
@@ -23,6 +24,7 @@ use App\Controllers\AnnualEffortController;
 use App\Controllers\CsrfTestController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
+use App\Controllers\ProfileController;
 use App\Controllers\AdminSystemController;
 use App\Database\ConnectionFactory;
 use App\Exceptions\AuthorizationException;
@@ -34,6 +36,7 @@ use App\Routing\Router;
 use App\Repositories\PdoUserRepository;
 use App\Repositories\PdoPersonRepository;
 use App\Repositories\PdoProjectRepository;
+use App\Repositories\PdoProjectTrashRepository;
 use App\Repositories\PdoProjectParticipantRepository;
 use App\Repositories\PdoPersonHourAllocationRepository;
 use App\Repositories\PdoPersonCapacityRepository;
@@ -45,6 +48,7 @@ use App\Services\HealthService;
 use App\Services\UserService;
 use App\Services\PersonService;
 use App\Services\ProjectService;
+use App\Services\ProjectTrashService;
 use App\Services\ProjectParticipantService;
 use App\Services\PersonHourAllocationService;
 use App\Services\PersonCapacityService;
@@ -53,6 +57,9 @@ use App\Services\AnnualEffortService;
 use App\Services\NavigationService;
 use App\Services\GlobalAnnualOverviewService;
 use App\Services\ProjectCreationWorkflowService;
+use App\Services\ProfileService;
+use App\Services\DatabaseBackupService;
+use App\Services\DeploymentMetadataService;
 use App\Support\ConfigLoader;
 use App\Support\Flash;
 use App\Support\UrlGenerator;
@@ -125,13 +132,19 @@ $currentPerson = new CurrentPerson($currentUser, $people);
 $projectPolicy = new ProjectPolicy();
 $capacityPolicy = new CapacityPolicy();
 $projects = new PdoProjectRepository(new ConnectionFactory($config));
+$projectTrash = new PdoProjectTrashRepository(new ConnectionFactory($config));
 $view = new View(PROJECT_ROOT . '/views', $urls, $flash, $currentUser, $csrf, new NavigationService($currentUser,$currentPerson,$projects,$projectPolicy,$capacityPolicy),$request->path());
 $globalOverview = new GlobalAnnualOverviewService($projects,new PdoGlobalAnnualOverviewRepository(new ConnectionFactory($config)),$decimalHours);
 $home = new HomeController($view,$authorization,$currentPerson,$globalOverview,$request);
 $auth = new AuthController($request, $view, $currentUser, $authentication, $validator, $csrf, $flash, $urls);
+$profile = new ProfileController($request,$view,$authorization,$people,new ProfileService($users,$authentication,$passwordMinLength),$csrf,$flash,$urls);
 $adminUsers = new AdminUserController($request,$view,$authorization,$users,$userService,$people,$csrf,$flash,$urls);
 $adminPeople = new AdminPersonController($request, $view, $authorization, $people, new PersonService($people, new PersonValidator()), $csrf, $flash, $urls,$personCapacity);
-$adminSystem = new AdminSystemController($view,$authorization,new ConnectionFactory($config),$config,PROJECT_ROOT,$logDirectory);
+$adminSystem = new AdminSystemController(
+    $request,$view,$authorization,new ConnectionFactory($config),$config,
+    new DeploymentMetadataService(PROJECT_ROOT.'/storage/deployment.json',$config),
+    new DatabaseBackupService(),$csrf,PROJECT_ROOT,$logDirectory
+);
 $personCapacityController = new PersonCapacityController($request,$view,$authorization,$currentPerson,$capacityPolicy,$people,$personCapacity,$personCapacityService,$decimalHours,$csrf,$flash,$urls);
 $projectParticipants = new PdoProjectParticipantRepository(new ConnectionFactory($config));
 $personHourAllocations = new PdoPersonHourAllocationRepository(new ConnectionFactory($config));
@@ -142,6 +155,7 @@ $annualEffortService = new AnnualEffortService($projects,$projectParticipants,$w
 $workPackageService = new WorkPackageService($workPackages,$projects,$projectParticipants,new WorkPackageValidator(),$projectPolicy,$personHourAllocations);
 $projectService=new ProjectService($projects,new ProjectValidator(),$projectPolicy,$workPackages);
 $projectController = new ProjectController($request, $view, $authorization, $currentPerson, $projectPolicy, $projects, $projectParticipants, $personHourAllocations, $personMonthConverter, $projectService, $csrf, $flash, $urls,$workPackages);
+$projectTrashController=new ProjectTrashController($request,$view,$authorization,$currentPerson,$projectPolicy,$projects,$projectTrash,new ProjectTrashService($projectTrash,$projectPolicy),$csrf,$flash,$urls);
 $projectCreationController=new ProjectCreationController($request,$view,$authorization,$currentPerson,$projectPolicy,$projectService,$projects,$people,new ProjectCreationWorkflowService(new ConnectionFactory($config)),$sessionManager,$csrf,$flash,$urls);
 $projectParticipantController = new ProjectParticipantController(
     $request, $view, $authorization, $currentPerson, $projectPolicy, $projects, $projectParticipants,
@@ -164,6 +178,9 @@ $router->post('/logout', function (array $parameters) use ($authorization, $auth
     $authorization->user();
     return $auth->logout();
 }, 'logout');
+$router->get('/profile',fn(array$parameters):Response=>$profile->show(),'profile');
+$router->post('/profile/email',fn(array$parameters):Response=>$profile->updateEmail(),'profile.email');
+$router->post('/profile/password',fn(array$parameters):Response=>$profile->changePassword(),'profile.password');
 $router->get('/admin/users', fn (array $parameters): Response => $adminUsers->index(), 'admin.users');
 $router->get('/admin/users/create', fn (array $parameters): Response => $adminUsers->createForm(), 'admin.users.create');
 $router->post('/admin/users', fn (array $parameters): Response => $adminUsers->create(), 'admin.users.store');
@@ -179,6 +196,7 @@ $router->post('/admin/people/{id}', fn (array $parameters): Response => $adminPe
 $router->post('/admin/people/{id}/activate', fn (array $parameters): Response => $adminPeople->activate($parameters), 'admin.people.activate');
 $router->post('/admin/people/{id}/deactivate', fn (array $parameters): Response => $adminPeople->deactivate($parameters), 'admin.people.deactivate');
 $router->get('/admin/system', fn (array $parameters): Response => $adminSystem->show(), 'admin.system');
+$router->post('/admin/system/backup', fn (array $parameters): Response => $adminSystem->backup(), 'admin.system.backup');
 $router->get('/projects', fn (array $parameters): Response => $projectController->index(), 'projects');
 $router->get('/projects/create', fn (array $parameters): Response => $projectCreationController->show(), 'projects.create');
 $router->post('/projects/create', fn (array $parameters): Response => $projectCreationController->submit(), 'projects.create.submit');
@@ -188,6 +206,13 @@ $router->get('/projects/{id}/edit', fn (array $parameters): Response => $project
 $router->get('/projects/{id}/configure', fn (array $parameters): Response => $projectController->configureForm($parameters), 'projects.configure');
 $router->post('/projects/{id}', fn (array $parameters): Response => $projectController->update($parameters), 'projects.update');
 $router->post('/projects/{id}/status', fn (array $parameters): Response => $projectController->status($parameters), 'projects.status');
+$router->get('/projects/{id}/trash',fn(array$p):Response=>$projectTrashController->moveForm($p),'projects.trash-confirm');
+$router->post('/projects/{id}/trash',fn(array$p):Response=>$projectTrashController->move($p),'projects.trash');
+$router->get('/admin/projects/trash',fn(array$p):Response=>$projectTrashController->index(),'projects.trash-index');
+$router->get('/admin/projects/trash/{id}',fn(array$p):Response=>$projectTrashController->show($p),'projects.trash-show');
+$router->post('/admin/projects/trash/{id}/restore',fn(array$p):Response=>$projectTrashController->restore($p),'projects.trash-restore');
+$router->get('/admin/projects/trash/{id}/delete',fn(array$p):Response=>$projectTrashController->deleteForm($p),'projects.trash-delete-confirm');
+$router->post('/admin/projects/trash/{id}/delete',fn(array$p):Response=>$projectTrashController->delete($p),'projects.trash-delete');
 $router->get('/projects/{projectId}/effort/edit',fn(array$p):Response=>$annualEffortController->show($p),'annual-effort');
 $router->get('/projects/{projectId}/effort',fn(array$p):Response=>Response::redirect($urls->to('/projects/'.$p['projectId'],['year'=>$request->query('year',(int)date('Y'))])),'annual-effort.legacy');
 $router->post('/projects/{projectId}/effort/edit',fn(array$p):Response=>$annualEffortController->save($p),'annual-effort.save');

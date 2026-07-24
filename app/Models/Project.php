@@ -39,6 +39,8 @@ final class Project
         public readonly ?string $managerName = null,
         public readonly ?string $managerEmail = null,
         public readonly string $hoursPerPm = '125.00',
+        public readonly ?DateTimeImmutable $deletedAt = null,
+        public readonly ?int $deletedByUserId = null,
     ) {
     }
 
@@ -54,11 +56,12 @@ final class Project
         return $this->totalBudget === null ? 'Not recorded' : $this->totalBudget . ' ' . $this->currency;
     }
     public function isOwnedBy(?int $personId): bool { return $personId !== null && $this->managerPersonId === $personId; }
+    public function isDeleted(): bool { return $this->deletedAt !== null; }
     public function withoutNotes(): self
     {
         return new self($this->id,$this->acronym,$this->title,$this->description,$this->internalCode,$this->grantAgreementNumber,
             $this->fundingAgency,$this->fundingProgramme,$this->coordinatorOrganization,$this->managerPersonId,$this->startDate,
             $this->endDate,$this->status,$this->totalBudget,$this->currency,$this->websiteUrl,null,$this->createdAt,$this->updatedAt,
-            $this->managerName,$this->managerEmail,$this->hoursPerPm);
+            $this->managerName,$this->managerEmail,$this->hoursPerPm,$this->deletedAt,$this->deletedByUserId);
     }
 }

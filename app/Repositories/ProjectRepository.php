@@ -11,6 +11,7 @@ use App\Models\ProjectPage;
 interface ProjectRepository
 {
     public function findById(int $id): ?Project;
+    public function findIncludingDeleted(int $id): ?Project;
     /** @return list<Project> */
     public function accessibleFor(string $role, ?int $personId, int $limit = 200): array;
     /** @return list<Project> */

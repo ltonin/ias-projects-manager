@@ -50,7 +50,6 @@ final class WorkPackage
     public function warnings(): array
     {
         $warnings = [];
-        if ($this->responsibleParticipantId === null) $warnings[] = 'No responsible participant is assigned.';
         if ($this->responsibleParticipantActive === false) $warnings[] = 'The responsible participation is inactive.';
         if ($this->responsiblePersonActive === false) $warnings[] = 'The responsible person is inactive.';
         if ($this->responsibleUserActive === false) $warnings[] = 'The responsible person’s linked account is inactive.';

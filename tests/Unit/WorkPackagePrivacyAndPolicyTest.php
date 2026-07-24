@@ -30,7 +30,7 @@ final class WorkPackagePrivacyAndPolicyTest extends TestCase
     }
     public function testOptionalAndInactiveResponsibilityWarnings():void
     {
-        self::assertSame(['No responsible participant is assigned.'],$this->wp(responsible:false)->warnings());
+        self::assertSame([],$this->wp(responsible:false)->warnings());
         self::assertCount(3,$this->wp(responsible:true)->warnings());
     }
     private function project():Project{$n=new DateTimeImmutable('2026-01-01');return new Project(1,'TEST','Test',null,null,null,null,null,null,1,null,null,'active',null,null,null,null,$n,$n);}

@@ -15,26 +15,30 @@ use App\Validation\PersonCapacityValidator;
 final class PersonCapacityService
 {
     public function __construct(private readonly PersonCapacityRepository$capacity,private readonly PersonRepository$people,private readonly PersonCapacityValidator$validator,private readonly DecimalHours$decimals){}
-    public function effectiveCapacity(Person$p,int$year,int$month):EffectiveCapacity{$o=$this->capacity->findOverrideForPersonAndMonth($p->id,$year,$month);return new EffectiveCapacity($o?->availableHours??$p->defaultMonthlyCapacityHours,$o===null?'standard':'override',$p->defaultMonthlyCapacityHours,$o?->availableHours);}
+    public function effectiveCapacity(Person$p,int$year,int$month):EffectiveCapacity{$standard=$this->monthlyFromAnnual($p);$o=$this->capacity->findOverrideForPersonAndMonth($p->id,$year,$month);return new EffectiveCapacity($o?->availableHours??$standard,$o===null?'annual':'override',$standard,$o?->availableHours);}
     /** @return list<MonthlyCapacitySummary> */
     public function annual(Person$p,int$year):array
     {
         $overrides=[];foreach($this->capacity->listOverridesForPersonAndYear($p->id,$year)as$o)$overrides[$o->month]=$o;
         $totals=$this->capacity->monthlyAllocationTotalsForPerson($p->id,$year);$out=[];
-        for($month=1;$month<=12;$month++){$o=$overrides[$month]??null;$effective=new EffectiveCapacity($o?->availableHours??$p->defaultMonthlyCapacityHours,$o?'override':'standard',$p->defaultMonthlyCapacityHours,$o?->availableHours);$out[]=new MonthlyCapacitySummary($year,$month,$effective,$totals[$month]['planned']??'0.00',$totals[$month]['actual']??'0.00',$o?->id);}
+        $standard=$this->monthlyFromAnnual($p);for($month=1;$month<=12;$month++){$o=$overrides[$month]??null;$effective=new EffectiveCapacity($o?->availableHours??$standard,$o?'override':'annual',$standard,$o?->availableHours);$out[]=new MonthlyCapacitySummary($year,$month,$effective,$totals[$month]['planned']??'0.00',$totals[$month]['actual']??'0.00',$o?->id);}
         return$out;
     }
     public function overview(User$user,?Person$manager,int$year):GlobalCapacityPage
     {
         $people=$this->people->capacityScope($user->role,$manager?->id);$ids=array_map(static fn(Person$p):int=>$p->id,$people);
         $overrides=$this->capacity->overviewOverrides($ids,$year);$totals=$this->capacity->overviewAllocationTotals($ids,$year);$entries=[];
-        foreach($people as$p){$months=[];$annual='0.00';$count=0;
+        foreach($people as$p){$months=[];$count=0;$standard=$this->monthlyFromAnnual($p);$annual='0.00';$annualAllocated='0.00';
             for($month=1;$month<=12;$month++){$o=$overrides[$p->id][$month]??null;if($o!==null)$count++;
-                $effective=new EffectiveCapacity($o?->availableHours??$p->defaultMonthlyCapacityHours,$o?'override':'standard',$p->defaultMonthlyCapacityHours,$o?->availableHours);
+                $effective=new EffectiveCapacity($o?->availableHours??$standard,$o?'override':'annual',$standard,$o?->availableHours);
                 $summary=new MonthlyCapacitySummary($year,$month,$effective,$totals[$p->id][$month]['planned']??'0.00',$totals[$p->id][$month]['actual']??'0.00',$o?->id);
-                $months[]=$summary;$annual=$this->decimals->format($this->decimals->cents($annual)+$this->decimals->cents($effective->effectiveHours));
+                $months[]=$summary;$annual=$this->decimals->format($this->decimals->cents($annual)+$this->decimals->cents($effective->effectiveHours));$annualAllocated=$this->decimals->format($this->decimals->cents($annualAllocated)+$this->decimals->cents($summary->allocatedHours()));
             }
-            $entries[]=['person'=>$p,'months'=>$months,'annualCapacity'=>$annual,'overrideCount'=>$count];
+            $capacityCents=$this->decimals->cents($annual);$allocatedCents=$this->decimals->cents($annualAllocated);
+            $entries[]=['person'=>$p,'months'=>$months,'annualCapacity'=>$annual,'annualAllocated'=>$annualAllocated,
+                'annualRemaining'=>$this->decimals->format($capacityCents-$allocatedCents),
+                'utilizationPercent'=>$capacityCents===0?null:(int)round(($allocatedCents/$capacityCents)*100),
+                'configuredAnnualCapacity'=>$p->annualCapacityHours,'overrideCount'=>$count];
         }
         return new GlobalCapacityPage($year,$entries,count($entries)<=5,$user->isAdmin());
     }
@@ -53,6 +57,7 @@ final class PersonCapacityService
     public function createOverride(Person$p,array$i):PersonCapacityOverride{return$this->capacity->createOverride(['person_id'=>$p->id]+$this->normalize($i));}
     public function updateOverride(Person$p,PersonCapacityOverride$o,array$i):PersonCapacityOverride{$this->assertBelongs($p,$o);return$this->capacity->updateOverride($o->id,$p->id,$this->normalize($i));}
     public function removeOverride(Person$p,PersonCapacityOverride$o):void{$this->assertBelongs($p,$o);$this->capacity->deleteOverride($o->id,$p->id);}
+    private function monthlyFromAnnual(Person$p):string{return$this->decimals->format((int)round($this->decimals->cents($p->annualCapacityHours)/12));}
     private function assertBelongs(Person$p,PersonCapacityOverride$o):void{if($o->personId!==$p->id)throw new \OutOfBoundsException('Capacity override not found.');}
     private function normalize(array$i):array{$h=$this->decimals->canonical(trim((string)$i['available_hours']));$n=trim((string)($i['notes']??''));return['year'=>(int)$i['year'],'month'=>(int)$i['month'],'available_hours'=>$h,'notes'=>$n===''?null:$n];}
 }

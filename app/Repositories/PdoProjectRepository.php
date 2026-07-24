@@ -22,9 +22,14 @@ final class PdoProjectRepository implements ProjectRepository
 
     public function findById(int $id): ?Project
     {
-        $statement = $this->connection()->prepare($this->selectSql() . ' WHERE pr.id = :id');
+        $statement = $this->connection()->prepare($this->selectSql() . ' WHERE pr.id = :id AND pr.deleted_at IS NULL');
         $statement->execute(['id'=>$id]);
         $row=$statement->fetch();
+        return is_array($row)?$this->hydrate($row):null;
+    }
+    public function findIncludingDeleted(int$id):?Project
+    {
+        $statement=$this->connection()->prepare($this->selectSql().' WHERE pr.id=:id');$statement->execute(['id'=>$id]);$row=$statement->fetch();
         return is_array($row)?$this->hydrate($row):null;
     }
 
@@ -41,8 +46,8 @@ final class PdoProjectRepository implements ProjectRepository
     private function accessible(string $role,?int $personId,?int $year,int $limit):array
     {
         $sql=$this->selectSql();
-        $parameters=[];$conditions=[];
-        if($role!=='admin'&&$role!=='viewer'){
+        $parameters=[];$conditions=['pr.deleted_at IS NULL'];
+        if($role!=='admin'&&$role!=='viewer'&&$role!=='project_manager'){
             if($personId===null)return[];
             $conditions[]='(pr.manager_person_id=:person_id OR EXISTS (
                 SELECT 1 FROM project_participants pp WHERE pp.project_id=pr.id AND pp.person_id=:participant_person_id
@@ -153,7 +158,7 @@ final class PdoProjectRepository implements ProjectRepository
     private function exists(string $column,string $value,?int $exceptId):bool{$sql="SELECT COUNT(*) FROM projects WHERE $column=:value";$p=['value'=>$value];if($exceptId!==null){$sql.=' AND id<>:id';$p['id']=$exceptId;}$s=$this->connection()->prepare($sql);$s->execute($p);return(int)$s->fetchColumn()>0;}
     private function where(array $f):array
     {
-        $c=[];$p=[];
+        $c=['pr.deleted_at IS NULL'];$p=[];
         if($f['search']!==''){
             $search='%'.strtr($f['search'],['='=>'==','%'=>'=%','_'=>'=_']).'%';
             $fields=['acronym','title','internal_code','grant_agreement_number','funding_agency','funding_programme','coordinator_organization'];
@@ -177,7 +182,9 @@ final class PdoProjectRepository implements ProjectRepository
         $r['website_url']===null?null:(string)$r['website_url'],$r['notes']===null?null:(string)$r['notes'],
         new DateTimeImmutable((string)$r['created_at']),new DateTimeImmutable((string)$r['updated_at']),
         $r['manager_name']===null?null:(string)$r['manager_name'],$r['manager_email']===null?null:(string)$r['manager_email'],
-        (string)($r['hours_per_pm']??'125.00')
+        (string)($r['hours_per_pm']??'125.00'),
+        $r['deleted_at']===null?null:new DateTimeImmutable((string)$r['deleted_at']),
+        $r['deleted_by_user_id']===null?null:(int)$r['deleted_by_user_id']
     );}
     private function translate(PDOException $e):void
     {

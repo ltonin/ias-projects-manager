@@ -90,6 +90,6 @@ final class PersonServiceTest extends TestCase
     /** @param array<string,string> $overrides @return array<string,string> */
     private function input(array $overrides=[]): array
     {
-        return $overrides + ['user_id'=>'','first_name'=>'Test','last_name'=>'Person','institutional_email'=>'','affiliation'=>'','position_type'=>'researcher','is_internal'=>'1','active_from'=>'','active_to'=>'','is_active'=>'1','notes'=>''];
+        return $overrides + ['user_id'=>'','first_name'=>'Test','last_name'=>'Person','institutional_email'=>'','affiliation'=>'','position_type'=>'researcher','is_internal'=>'1','active_from'=>'','active_to'=>'','is_active'=>'1','annual_capacity_hours'=>'1150.00','notes'=>''];
     }
 }

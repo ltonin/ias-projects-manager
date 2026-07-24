@@ -11,7 +11,7 @@ final class ProjectConfigurationStructureTest extends TestCase
         $routes=(string)file_get_contents($root.'/bootstrap/app.php');
         $nav=(string)file_get_contents($root.'/views/projects/_configure_nav.php');
         self::assertStringContainsString("'/projects/{id}/configure'",$routes);
-        self::assertStringContainsString('Project details',$nav);
+        self::assertStringContainsString('>Details<',$nav);
         self::assertStringContainsString('Work Packages',$nav);
         self::assertStringContainsString('Participants',$nav);
         self::assertStringContainsString('aria-current="page"',$nav);

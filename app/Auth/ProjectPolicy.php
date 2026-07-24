@@ -16,6 +16,7 @@ final class ProjectPolicy
     public function canView(User $user,?Person $person,Project $project,bool $participates=false):bool
     {
         return $user->isAdmin()
+            || $user->isProjectManager()
             || ($person!==null&&($project->isOwnedBy($person->id)||$participates))
             || $user->role===User::ROLE_VIEWER;
     }

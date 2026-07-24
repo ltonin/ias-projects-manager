@@ -47,6 +47,6 @@ final class PersonValidatorTest extends TestCase
     /** @param array<string,string> $overrides @return array<string,string> */
     private function valid(array $overrides=[]): array
     {
-        return $overrides + ['user_id'=>'','first_name'=>'Ada','last_name'=>'Lovelace','institutional_email'=>'','affiliation'=>'','position_type'=>'researcher','is_internal'=>'1','active_from'=>'','active_to'=>'','is_active'=>'1','default_monthly_capacity_hours'=>'125.00','notes'=>''];
+        return $overrides + ['user_id'=>'','first_name'=>'Ada','last_name'=>'Lovelace','institutional_email'=>'','affiliation'=>'','position_type'=>'researcher','is_internal'=>'1','active_from'=>'','active_to'=>'','is_active'=>'1','default_monthly_capacity_hours'=>'125.00','annual_capacity_hours'=>'1150.00','notes'=>''];
     }
 }

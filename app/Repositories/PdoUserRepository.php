@@ -112,10 +112,10 @@ final class PdoUserRepository implements UserRepository
                 $personId=$existingPersonId;
             }else{
                 $person=$pdo->prepare('INSERT INTO people
-                    (user_id,first_name,last_name,institutional_email,affiliation,position_type,is_internal,active_from,active_to,is_active,default_monthly_capacity_hours,notes)
-                    VALUES(NULL,:first_name,:last_name,:email,NULL,:position_type,:is_internal,NULL,NULL,:is_active,:capacity,NULL)');
+                    (user_id,first_name,last_name,institutional_email,affiliation,position_type,is_internal,active_from,active_to,is_active,default_monthly_capacity_hours,annual_capacity_hours,notes)
+                    VALUES(NULL,:first_name,:last_name,:email,NULL,:position_type,:is_internal,NULL,NULL,:is_active,:capacity,:annual_capacity,NULL)');
                 $person->execute(['first_name'=>$newPersonData['first_name'],'last_name'=>$newPersonData['last_name'],'email'=>$newPersonData['institutional_email'],
-                    'position_type'=>$newPersonData['position_type'],'is_internal'=>$newPersonData['is_internal']?1:0,'is_active'=>$newPersonData['is_active']?1:0,'capacity'=>$newPersonData['default_monthly_capacity_hours']]);
+                    'position_type'=>$newPersonData['position_type'],'is_internal'=>$newPersonData['is_internal']?1:0,'is_active'=>$newPersonData['is_active']?1:0,'capacity'=>$newPersonData['default_monthly_capacity_hours'],'annual_capacity'=>$newPersonData['annual_capacity_hours']]);
                 $personId=(int)$pdo->lastInsertId();
             }
             if($userData['role']===User::ROLE_ADMIN){
@@ -193,6 +193,18 @@ final class PdoUserRepository implements UserRepository
     {
         $statement = $this->connection()->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id');
         $statement->execute(['id' => $id, 'password_hash' => $passwordHash]);
+    }
+
+    public function updateEmail(int $id, string $email): User
+    {
+        try {
+            $statement=$this->connection()->prepare('UPDATE users SET email=:email WHERE id=:id');
+            $statement->execute(['id'=>$id,'email'=>$email]);
+        } catch(PDOException $exception) {
+            $this->translateConstraint($exception);
+            throw $exception;
+        }
+        return $this->findById($id)??throw new \OutOfBoundsException('User not found.');
     }
 
     public function recordLogin(int $id): void

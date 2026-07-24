@@ -102,6 +102,7 @@ final class UserService
         'institutional_email'=>UserValidator::normalizeEmail((string)($input['email']??'')),'affiliation'=>'','position_type'=>'other',
         'is_internal'=>'0','active_from'=>'','active_to'=>'','is_active'=>(isset($input['is_active'])&&(string)$input['is_active']==='1')?'1':'0',
         'default_monthly_capacity_hours'=>'125.00','notes'=>'',
+        'annual_capacity_hours'=>'1500.00',
     ];}
     private function personId(mixed$value):?int{$id=filter_var(trim((string)$value),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);return$id===false?null:(int)$id;}
 }

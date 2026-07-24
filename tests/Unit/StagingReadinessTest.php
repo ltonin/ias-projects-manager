@@ -52,12 +52,12 @@ final class StagingReadinessTest extends TestCase
         $root=dirname(__DIR__,2);
         $controller=(string)file_get_contents($root.'/app/Controllers/AdminSystemController.php');
         $view=(string)file_get_contents($root.'/views/admin/system.php');
-        self::assertStringContainsString('if(!$user->isAdmin())',$controller);
+        self::assertStringContainsString('if (!$user->isAdmin())',$controller);
         self::assertStringNotContainsString('DB_PASSWORD',$view);
         self::assertStringNotContainsString('.env',$view);
-        self::assertStringContainsString('Users without linked Person',$view);
-        self::assertStringContainsString('Migrations',$view);
-        self::assertStringContainsString('Writable directories',$view);
+        self::assertStringContainsString('Missing linked Person',$view);
+        self::assertStringContainsString('Pending migrations',$view);
+        self::assertStringContainsString('Writable directory',$view);
     }
 
     public function testStagingCannotEnableDebugOrDevelopmentRoutes():void

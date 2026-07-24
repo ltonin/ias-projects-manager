@@ -5,7 +5,7 @@ $paginationQuery=$filters+['per_page'=>$page->perPage];
 ?>
 <div class="d-flex justify-content-between align-items-start mb-4"><div><h1 class="h2 mb-1">Projects</h1><p class="text-secondary mb-0"><?= $page->total ?> result<?= $page->total===1?'':'s' ?></p></div><?php if($canCreate):?><a class="btn btn-primary" href="<?= View::escape($urls->to('/projects/create')) ?>">Create project</a><?php endif;?></div>
 <?php if($missingPerson):?><div class="alert alert-warning"><?= View::escape(App\Auth\ProjectPolicy::MISSING_PERSON_MESSAGE) ?></div><?php endif;?>
-<form class="card card-body mb-4" method="get" action="<?= View::escape($urls->to('/projects')) ?>"><div class="row g-3 align-items-end">
+<form class="filter-toolbar mb-4" method="get" action="<?= View::escape($urls->to('/projects')) ?>"><div class="row g-3 align-items-end">
 <div class="col-lg-4"><label class="form-label" for="search">Search</label><input class="form-control" id="search" name="search" value="<?= View::escape($filters['search']) ?>"></div>
 <div class="col-sm-6 col-lg-2"><label class="form-label" for="status">Status</label><select class="form-select" id="status" name="status"><option value="">All</option><?php foreach($statusLabels as $v=>$l):?><option value="<?= $v ?>" <?= $filters['status']===$v?'selected':'' ?>><?= $l ?></option><?php endforeach;?></select></div>
 <div class="col-sm-6 col-lg-2"><label class="form-label" for="manager_person_id">Manager</label><select class="form-select" id="manager_person_id" name="manager_person_id"><option value="">All</option><?php foreach($managerOptions as $o):?><option value="<?= $o->id ?>" <?= $filters['manager_person_id']===(string)$o->id?'selected':'' ?>><?= View::escape($o->name) ?></option><?php endforeach;?></select></div>

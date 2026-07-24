@@ -50,6 +50,11 @@ final class ProjectCreationController
         }
         if(!isset($state['details']))throw new HttpException(409,'The project creation session is incomplete.');
         if($step==='work-packages'){
+            if((string)$this->request->post('action','')==='add-work-package'){
+                $rows=$this->submittedWorkPackageRows($state['details']);
+                $rows[]=['code'=>'','title'=>'','start_date'=>$state['details']['start_date'],'end_date'=>$state['details']['end_date']];
+                return$this->render('work-packages',$state,[],$user,$person,['work_packages'=>$rows]);
+            }
             [$wps,$errors]=$this->workPackages($state['details']);if($errors!==[])return$this->render('work-packages',$state,$errors,$user,$person,['work_packages'=>$wps],422);
             $state['work_packages']=$wps;$this->save($user->id,$state);return Response::redirect($this->urls->to('/projects/create',['step'=>'participants']));
         }
@@ -85,17 +90,29 @@ final class ProjectCreationController
     }
     private function workPackages(array$details):array
     {
-        $raw=$this->request->post('work_packages',[]);if(!is_array($raw))return[[],['work_packages'=>'Invalid Work Package list.']];
+        $raw=$this->submittedWorkPackageRows($details);
         $out=[];$errors=[];$codes=[];
         foreach($raw as$i=>$row){if(!is_array($row))continue;$code=trim((string)($row['code']??''));$title=trim((string)($row['title']??''));if($code===''&&$title==='')continue;
             $start=trim((string)($row['start_date']??$details['start_date']));$end=trim((string)($row['end_date']??$details['end_date']));
-            if($code===''||strlen($code)>50)$errors["wp_$i"]='Each Work Package needs a code of at most 50 characters.';
-            if($title===''||strlen($title)>255)$errors["wp_title_$i"]='Each Work Package needs a title of at most 255 characters.';
-            $fold=mb_strtolower($code);if(isset($codes[$fold]))$errors["wp_duplicate_$i"]='Work Package codes must be unique.';$codes[$fold]=true;
-            if($start!==''&&$end!==''&&$end<$start)$errors["wp_dates_$i"]='A Work Package end date cannot precede its start date.';
-            if(($start!==''&&$details['start_date']!==''&&$start<$details['start_date'])||($end!==''&&$details['end_date']!==''&&$end>$details['end_date']))$errors["wp_range_$i"]='Work Package dates must stay within project dates.';
+            if($code===''||mb_strlen($code)>50)$errors["work_packages[$i][code]"]='Each Work Package needs a code of at most 50 characters.';
+            if($title===''||mb_strlen($title)>255)$errors["work_packages[$i][title]"]='Each Work Package needs a title of at most 255 characters.';
+            $fold=mb_strtolower($code);if(isset($codes[$fold]))$errors["work_packages[$i][code]"]='Work Package codes must be unique.';$codes[$fold]=true;
+            if($start!==''&&$end!==''&&$end<$start)$errors["work_packages[$i][end_date]"]='A Work Package end date cannot precede its start date.';
+            if(($start!==''&&$details['start_date']!==''&&$start<$details['start_date'])||($end!==''&&$details['end_date']!==''&&$end>$details['end_date']))$errors["work_packages[$i][start_date]"]='Work Package dates must stay within project dates.';
             $out[]=['code'=>$code,'title'=>$title,'start_date'=>$start,'end_date'=>$end];
         }return[$out,$errors];
+    }
+    private function submittedWorkPackageRows(array$details):array
+    {
+        $raw=$this->request->post('work_packages',[]);
+        if(!is_array($raw))return[];
+        $rows=[];
+        foreach($raw as$row)if(is_array($row))$rows[]=[
+            'code'=>(string)($row['code']??''),'title'=>(string)($row['title']??''),
+            'start_date'=>(string)($row['start_date']??$details['start_date']),
+            'end_date'=>(string)($row['end_date']??$details['end_date']),
+        ];
+        return$rows;
     }
     private function participants(array$details):array
     {

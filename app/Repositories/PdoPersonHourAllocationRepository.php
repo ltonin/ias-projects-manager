@@ -61,7 +61,7 @@ final class PdoPersonHourAllocationRepository implements PersonHourAllocationRep
         if(!isset($data['work_package_id'])||!is_int($data['work_package_id'])||$data['work_package_id']<1)throw new \InvalidArgumentException('A Work Package is required.');
         $sql='INSERT INTO person_hour_allocations(project_participant_id,work_package_id,work_package_key,year,month,planned_hours,actual_hours,notes)
             SELECT :participant,:work_package_id,:work_package_key,:year,:month,:planned,:actual,:notes FROM project_participants pp JOIN projects pr ON pr.id=pp.project_id
-            WHERE pp.id=:authorized_participant AND EXISTS(SELECT 1 FROM work_packages wp WHERE wp.id=:wp_exists AND wp.project_id=pp.project_id)';
+            WHERE pp.id=:authorized_participant AND pr.deleted_at IS NULL AND EXISTS(SELECT 1 FROM work_packages wp WHERE wp.id=:wp_exists AND wp.project_id=pp.project_id)';
         $parameters=$this->parameters($data)+['authorized_participant'=>$data['project_participant_id']];
         $parameters['wp_exists']=$data['work_package_id'];
         if($requiredManagerPersonId!==null){$sql.=' AND pr.manager_person_id=:manager';$parameters['manager']=$requiredManagerPersonId;}
@@ -76,7 +76,7 @@ final class PdoPersonHourAllocationRepository implements PersonHourAllocationRep
         $existing=$this->findById($id);if($existing!==null&&$existing->projectParticipantId===$participantId&&$existing->workPackageId===null)throw new \InvalidArgumentException('Legacy unassigned effort must use the reclassification workflow.');
         $sql='UPDATE person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id JOIN projects pr ON pr.id=pp.project_id
             SET a.work_package_id=:work_package_id,a.work_package_key=:work_package_key,a.year=:year,a.month=:month,a.planned_hours=:planned,a.actual_hours=:actual,a.notes=:notes
-            WHERE a.id=:id AND a.project_participant_id=:participant
+            WHERE a.id=:id AND a.project_participant_id=:participant AND pr.deleted_at IS NULL
             AND a.work_package_id IS NOT NULL
             AND EXISTS(SELECT 1 FROM work_packages wp WHERE wp.id=:wp_exists AND wp.project_id=pp.project_id)';
         $parameters=['id'=>$id,'participant'=>$participantId]+$this->parameters($data);
@@ -90,7 +90,7 @@ final class PdoPersonHourAllocationRepository implements PersonHourAllocationRep
     public function delete(int$id,int$participantId,?int$requiredManagerPersonId=null):void
     {
         $sql='DELETE a FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id JOIN projects pr ON pr.id=pp.project_id
-            WHERE a.id=:id AND a.project_participant_id=:participant';
+            WHERE a.id=:id AND a.project_participant_id=:participant AND pr.deleted_at IS NULL';
         $parameters=['id'=>$id,'participant'=>$participantId];
         if($requiredManagerPersonId!==null){$sql.=' AND pr.manager_person_id=:manager';$parameters['manager']=$requiredManagerPersonId;}
         $statement=$this->connection()->prepare($sql);$statement->execute($parameters);
@@ -130,7 +130,7 @@ final class PdoPersonHourAllocationRepository implements PersonHourAllocationRep
         if($workPackageId<1)throw new \InvalidArgumentException('A Work Package is required.');
         $sql='UPDATE person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id JOIN projects pr ON pr.id=pp.project_id
             SET a.work_package_id=:wp,a.work_package_key=:wp_key
-            WHERE a.id=:id AND a.project_participant_id=:participant AND a.work_package_id IS NULL AND a.work_package_key=0
+            WHERE a.id=:id AND a.project_participant_id=:participant AND pr.deleted_at IS NULL AND a.work_package_id IS NULL AND a.work_package_key=0
             AND EXISTS(SELECT 1 FROM work_packages target WHERE target.id=:wp_exists AND target.project_id=pp.project_id)';
         $parameters=['wp'=>$workPackageId,'wp_key'=>$workPackageId,'wp_exists'=>$workPackageId,'id'=>$id,'participant'=>$participantId];
         if($requiredManagerPersonId!==null){$sql.=' AND pr.manager_person_id=:manager';$parameters['manager']=$requiredManagerPersonId;}
@@ -154,7 +154,7 @@ final class PdoPersonHourAllocationRepository implements PersonHourAllocationRep
         wp.code work_package_code,wp.title work_package_title,wp.is_active work_package_is_active,
         wp.start_date work_package_start_date,wp.end_date work_package_end_date
         FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id
-        JOIN people pe ON pe.id=pp.person_id JOIN projects pr ON pr.id=pp.project_id
+        JOIN people pe ON pe.id=pp.person_id JOIN projects pr ON pr.id=pp.project_id AND pr.deleted_at IS NULL
         LEFT JOIN work_packages wp ON wp.id=a.work_package_id';}
     private function parameters(array$data):array{return[
         'participant'=>$data['project_participant_id'],
@@ -186,7 +186,7 @@ final class PdoPersonHourAllocationRepository implements PersonHourAllocationRep
     }
     private function totals(string$where,array$parameters):HourTotals
     {
-        $statement=$this->connection()->prepare("SELECT COALESCE(SUM(a.planned_hours),0.00) planned,COALESCE(SUM(a.actual_hours),0.00) actual,COUNT(*) allocation_count,COUNT(DISTINCT a.project_participant_id) participant_count,COUNT(DISTINCT CONCAT(a.year,'-',LPAD(a.month,2,'0'))) distinct_month_count,COUNT(DISTINCT CONCAT(pp.project_id,'-',a.year,'-',LPAD(a.month,2,'0'))) distinct_project_month_count FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id ".$where);
+        $statement=$this->connection()->prepare("SELECT COALESCE(SUM(a.planned_hours),0.00) planned,COALESCE(SUM(a.actual_hours),0.00) actual,COUNT(*) allocation_count,COUNT(DISTINCT a.project_participant_id) participant_count,COUNT(DISTINCT CONCAT(a.year,'-',LPAD(a.month,2,'0'))) distinct_month_count,COUNT(DISTINCT CONCAT(pp.project_id,'-',a.year,'-',LPAD(a.month,2,'0'))) distinct_project_month_count FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id JOIN projects pr ON pr.id=pp.project_id AND pr.deleted_at IS NULL ".$where);
         $statement->execute($parameters);$row=$statement->fetch();
         return new HourTotals((string)$row['planned'],(string)$row['actual'],(int)$row['allocation_count'],(int)$row['participant_count'],(int)$row['distinct_month_count'],(int)$row['distinct_project_month_count']);
     }
@@ -196,7 +196,7 @@ final class PdoPersonHourAllocationRepository implements PersonHourAllocationRep
     }
     private function divergentCount(string$where,array$parameters):int
     {
-        $extra=str_contains($where,'WHERE')?' AND ':' WHERE ';$s=$this->connection()->prepare('SELECT COUNT(*) FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id '.$where.$extra.'NOT(a.planned_hours <=> a.actual_hours)');$s->execute($parameters);return(int)$s->fetchColumn();
+        $extra=str_contains($where,'WHERE')?' AND ':' WHERE ';$s=$this->connection()->prepare('SELECT COUNT(*) FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id JOIN projects pr ON pr.id=pp.project_id AND pr.deleted_at IS NULL '.$where.$extra.'NOT(a.planned_hours <=> a.actual_hours)');$s->execute($parameters);return(int)$s->fetchColumn();
     }
     private function translate(PDOException$exception):void
     {

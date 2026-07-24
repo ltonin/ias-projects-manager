@@ -1,0 +1,7 @@
+{
+  "version": "16.0.0",
+  "build_version": "release-2026.07.24",
+  "commit": "0123456789abcdef",
+  "build_date": "2026-07-24T10:00:00+02:00",
+  "deployment_date": "2026-07-24T10:15:00+02:00"
+}

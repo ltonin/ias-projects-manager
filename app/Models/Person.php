@@ -39,7 +39,14 @@ final class Person
         public readonly DateTimeImmutable $updatedAt,
         public readonly ?string $linkedUsername = null,
         public readonly string $defaultMonthlyCapacityHours = '125.00',
+        public readonly string $annualCapacityHours = '1500.00',
     ) {
+    }
+
+    public static function defaultAnnualCapacity(string $positionType): string
+    {
+        return in_array($positionType, ['full_professor','associate_professor','assistant_professor','researcher'], true)
+            ? '1150.00' : '1500.00';
     }
 
     public function fullName(): string { return $this->firstName . ' ' . $this->lastName; }

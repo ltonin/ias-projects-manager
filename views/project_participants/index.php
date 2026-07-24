@@ -10,7 +10,7 @@ $pagination=$filters+['per_page'=>$page->perPage];
   <div class="d-flex flex-wrap gap-2"><?php if($canManage):?><a class="btn btn-primary" href="<?= View::escape($urls->to($base.'/create',['return'=>'configure']+($configurationYear===null?[]:['year'=>$configurationYear]))) ?>">Add participant</a><?php endif;?></div>
 </div>
 <?php if($project->status!=='active'):?><div class="alert alert-warning">This project is <?= View::escape(strtolower($project->statusLabel())) ?>. Participation states are managed independently.</div><?php endif;?>
-<form class="card card-body mb-4" method="get" action="<?= View::escape($urls->to($base)) ?>"><div class="row g-3 align-items-end">
+<form class="filter-toolbar mb-4" method="get" action="<?= View::escape($urls->to($base)) ?>"><div class="row g-3 align-items-end">
   <div class="col-lg-4"><label class="form-label" for="search">Search</label><input class="form-control" id="search" name="search" value="<?= View::escape($filters['search']) ?>"></div>
   <div class="col-sm-6 col-lg-2"><label class="form-label" for="active">Participation</label><select class="form-select" id="active" name="active"><?php foreach(['all'=>'All','active'=>'Active','inactive'=>'Inactive'] as $v=>$l):?><option value="<?= $v ?>" <?= $filters['active']===$v?'selected':'' ?>><?= $l ?></option><?php endforeach;?></select></div>
   <div class="col-sm-6 col-lg-2"><label class="form-label" for="project_role">Project role</label><select class="form-select" id="project_role" name="project_role"><option value="">All</option><?php foreach($roleLabels as $v=>$l):?><option value="<?= $v ?>" <?= $filters['project_role']===$v?'selected':'' ?>><?= View::escape($l) ?></option><?php endforeach;?></select></div>
@@ -22,7 +22,7 @@ $pagination=$filters+['per_page'=>$page->perPage];
 <?php foreach($page->items as $participant):?><tr>
   <td><a href="<?= View::escape($urls->to($base.'/'.$participant->id)) ?>"><?= View::escape($participant->personName()) ?></a><br><small class="text-secondary"><?= View::escape($participant->institutionalEmail??'No institutional email') ?></small></td>
   <td><?= View::escape($participant->positionLabel()) ?></td><td><?= View::escape($participant->affiliation??'—') ?></td><td><?= View::escape($participant->roleLabel()) ?></td><td><?= View::escape($participant->period()) ?></td>
-  <td><span class="badge <?= $participant->isActive?'text-bg-success':'text-bg-secondary' ?>"><?= View::escape($participant->activeLabel()) ?></span><?php if(!$participant->personIsActive):?> <span class="badge text-bg-warning">Person inactive</span><?php endif;?></td>
+  <td><?php if($participant->isActive):?><span class="badge text-bg-success">Active</span><?php else:?><span class="text-secondary">Inactive</span><?php endif;?><?php if(!$participant->personIsActive):?> <span class="badge text-bg-warning">Person inactive</span><?php endif;?></td>
   <td><?= View::escape($participant->linkedUsername??'Not linked') ?><?php if($participant->linkedUserIsActive===false):?><br><small class="text-danger">Account inactive</small><?php endif;?></td>
   <td><?php if($canManage):?><a class="btn btn-sm btn-outline-primary" href="<?= View::escape($urls->to($base.'/'.$participant->id.'/edit',['return'=>'configure']+($configurationYear===null?[]:['year'=>$configurationYear]))) ?>">Edit</a><?php endif;?></td>
 </tr><?php endforeach;?>

@@ -25,6 +25,7 @@ interface UserRepository
     /** @param array{username:string,email:string,first_name:string,last_name:string,role:string,is_active:bool,acting_user_id:int,password_hash?:string} $data */
     public function update(int $id, array $data): User;
     public function updatePasswordHash(int $id, string $passwordHash): void;
+    public function updateEmail(int $id, string $email): User;
     public function recordLogin(int $id): void;
     public function setActive(int $id, bool $active, int $actingUserId): User;
     public function emailExists(string $email, ?int $exceptId = null): bool;

@@ -93,6 +93,7 @@ final class PersonService
             'active_to' => $this->nullable(trim((string) ($input['active_to'] ?? ''))),
             'is_active' => (string) ($input['is_active'] ?? '') === '1',
             'default_monthly_capacity_hours'=>$this->canonicalDecimal((string)($input['default_monthly_capacity_hours']??'125.00')),
+            'annual_capacity_hours'=>$this->canonicalDecimal((string)($input['annual_capacity_hours']??Person::defaultAnnualCapacity((string)($input['position_type']??'')))),
             'notes' => $this->nullable(trim((string) ($input['notes'] ?? ''))),
         ];
     }

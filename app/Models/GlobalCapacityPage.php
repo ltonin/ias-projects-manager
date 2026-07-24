@@ -4,7 +4,7 @@ namespace App\Models;
 
 final class GlobalCapacityPage
 {
-    /** @param list<array{person:Person,months:array,annualCapacity:string,overrideCount:int}> $people */
+    /** @param list<array{person:Person,months:array,annualCapacity:string,annualAllocated:string,annualRemaining:string,utilizationPercent:?int,overrideCount:int}> $people */
     public function __construct(
         public readonly int $year,
         public readonly array $people,

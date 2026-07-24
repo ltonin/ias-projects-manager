@@ -46,9 +46,12 @@ final class AnnualEffortService
         }
         $capacityRaw=$this->effort->capacityData(array_map(fn($participant)=>$participant->personId,$participants),$year);$capacity=[];
         foreach($participants as$participant){
-            $d=$capacityRaw[$participant->personId]??['standard'=>'0.00','overrides'=>[],'months'=>[],'divergent'=>0];$over=0;
-            foreach(range(1,12)as$m){$cap=$d['overrides'][$m]??$d['standard'];$hours=$d['months'][$m]['hours']??'0.00';if($this->decimals->compare($hours,$cap)>0)$over++;}
-            $capacity[]=['participant'=>$participant,'projectHours'=>$projectPerson[$participant->personId]??'0.00','crossProjectHours'=>$this->sum(array_column($d['months'],'hours')),'monthsOver'=>$over,'divergentCount'=>(int)($d['divergent']??0)];
+            $d=$capacityRaw[$participant->personId]??['standard'=>'0.00','overrides'=>[],'months'=>[],'divergent'=>0];$periods=[];
+            foreach(range(1,12)as$m){$cap=(string)($d['overrides'][$m]??$d['standard']);$hours=(string)($d['months'][$m]['hours']??'0.00');if($this->decimals->compare($hours,$cap)>0)$periods[]=[
+                'year'=>$year,'month'=>$m,'allocatedHours'=>$hours,'capacityHours'=>$cap,
+                'excessHours'=>$this->decimals->format($this->decimals->cents($hours)-$this->decimals->cents($cap)),
+            ];}
+            $capacity[]=['participant'=>$participant,'projectHours'=>$projectPerson[$participant->personId]??'0.00','crossProjectHours'=>$this->sum(array_column($d['months'],'hours')),'monthsOver'=>count($periods),'periods'=>$periods,'divergentCount'=>(int)($d['divergent']??0)];
         }
         $currentYear=(int)date('Y');return new AnnualEffortPage($p,$year,$this->policy->canManageAllocations($u,$person,$p),$sections,$projectMonthly,$this->sum($projectMonthly),$wpsWith,count($peopleWith),$capacity,$this->effort->unassignedSummary($p->id,$year),$this->effort->snapshotToken($rows),$divergentCount,$year===$currentYear?(int)date('n'):null);
     }

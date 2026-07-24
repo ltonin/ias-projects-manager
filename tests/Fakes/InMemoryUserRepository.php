@@ -103,6 +103,12 @@ final class InMemoryUserRepository implements UserRepository
         $this->users[$id] = new User($user->id, $user->username, $user->email, $passwordHash, $user->firstName, $user->lastName, $user->role, $user->isActive, $user->lastLoginAt, $user->createdAt, new DateTimeImmutable());
         $this->passwordUpdated = true;
     }
+    public function updateEmail(int$id,string$email):User
+    {
+        $user=$this->users[$id]??throw new \OutOfBoundsException();
+        if($this->emailExists($email,$id))throw new DuplicateEmailException();
+        return$this->users[$id]=new User($user->id,$user->username,$email,$user->passwordHash,$user->firstName,$user->lastName,$user->role,$user->isActive,$user->lastLoginAt,$user->createdAt,$user->updatedAt);
+    }
     public function recordLogin(int $id): void { $this->loginRecorded = true; }
 
     public function setActive(int $id, bool $active, int $actingUserId): User

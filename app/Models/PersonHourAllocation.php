@@ -41,6 +41,8 @@ final class PersonHourAllocation
 
     public function periodKey(): string { return sprintf('%04d-%02d', $this->year, $this->month); }
     public function monthLabel(): string { return (new DateTimeImmutable($this->periodKey() . '-01'))->format('F Y'); }
+    public function allocatedHours(): ?string { return $this->actualHours ?? $this->plannedHours; }
+    public function allocatedPm(PersonMonthConverter $converter): ?string { return $converter->convert($this->allocatedHours(),$this->hoursPerPm); }
     public function hourVariance(PersonMonthConverter $converter): ?string { return $converter->subtract($this->actualHours, $this->plannedHours); }
     public function plannedPm(PersonMonthConverter $converter): ?string { return $converter->convert($this->plannedHours, $this->hoursPerPm); }
     public function actualPm(PersonMonthConverter $converter): ?string { return $converter->convert($this->actualHours, $this->hoursPerPm); }

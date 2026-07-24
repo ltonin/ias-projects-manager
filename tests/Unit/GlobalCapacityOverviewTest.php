@@ -34,6 +34,7 @@ final class GlobalCapacityOverviewTest extends TestCase
         self::assertSame(2026,$page->year);self::assertCount(2,$page->people);self::assertCount(12,$page->people[0]['months']);
         self::assertSame('0.00',$page->people[0]['months'][1]->capacity->effectiveHours);self::assertSame('override',$page->people[0]['months'][1]->capacity->source);
         self::assertSame('1375.00',$page->people[0]['annualCapacity']);self::assertSame('1500.00',$page->people[1]['annualCapacity']);
+        self::assertSame('4.00',$page->people[0]['annualAllocated']);self::assertSame('1371.00',$page->people[0]['annualRemaining']);self::assertSame(0,$page->people[0]['utilizationPercent']);
         self::assertSame('0.00',$service->overview(UserFactory::make(),$people->people[1],2027)->people[0]['months'][1]->plannedHours);
     }
     public function testNoJavascriptCapacityMarkupKeepsPanelsVisible():void
@@ -43,5 +44,8 @@ final class GlobalCapacityOverviewTest extends TestCase
         self::assertStringContainsString('aria-expanded="true"',$view);self::assertStringContainsString('aria-controls=',$view);
         self::assertStringNotContainsString('class="capacity-person-panel" hidden',$view);
         self::assertStringContainsString('data-capacity-expand-all',$view);self::assertStringContainsString('data-capacity-collapse-all',$view);
+        self::assertStringContainsString('Annual workload at a glance',$view);
+        self::assertStringContainsString('role="img" aria-label=',$view);
+        self::assertStringContainsString('capacity-load-meter',$view);
     }
 }

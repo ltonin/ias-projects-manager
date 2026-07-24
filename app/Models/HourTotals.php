@@ -17,5 +17,6 @@ final class HourTotals
         public readonly int $distinctProjectMonthCount = 0,
     ) {
     }
+    public function allocatedHours():string{return$this->actualHours!=='0.00'?$this->actualHours:$this->plannedHours;}
     public function variance(PersonMonthConverter $converter): string { return $converter->subtract($this->actualHours, $this->plannedHours) ?? '0.00'; }
 }

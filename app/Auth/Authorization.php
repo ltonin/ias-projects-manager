@@ -27,4 +27,18 @@ final class Authorization
         }
         return $user;
     }
+
+    public function canViewPeople(User $user): bool
+    {
+        return $user->isAdmin() || $user->isProjectManager();
+    }
+
+    public function peopleViewer(): User
+    {
+        $user = $this->user();
+        if (!$this->canViewPeople($user)) {
+            throw new AuthorizationException('People access is not permitted.');
+        }
+        return $user;
+    }
 }

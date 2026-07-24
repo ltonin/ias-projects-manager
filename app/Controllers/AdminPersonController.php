@@ -36,7 +36,7 @@ final class AdminPersonController
 
     public function index(): Response
     {
-        $this->authorization->admin();
+        $user = $this->authorization->peopleViewer();
         $listing = $this->service->listing($this->request->queryData());
         return new Response($this->view->render('admin/people/index', [
             'title' => 'People',
@@ -44,6 +44,7 @@ final class AdminPersonController
             'filters' => $listing['filters'],
             'positionLabels' => Person::POSITION_LABELS,
             'csrfToken' => $this->csrf->token(),
+            'canManage' => $user->isAdmin(),
         ]));
     }
 
@@ -161,6 +162,7 @@ final class AdminPersonController
             'affiliation' => '', 'position_type' => 'researcher', 'is_internal' => '1',
             'active_from' => '', 'active_to' => '', 'is_active' => '1', 'notes' => '',
             'default_monthly_capacity_hours'=>'125.00',
+            'annual_capacity_hours'=>Person::defaultAnnualCapacity('researcher'),
         ];
     }
 
@@ -179,6 +181,7 @@ final class AdminPersonController
             'active_to' => $person->activeTo?->format('Y-m-d') ?? '',
             'is_active' => $person->isActive ? '1' : '0',
             'default_monthly_capacity_hours'=>$person->defaultMonthlyCapacityHours,
+            'annual_capacity_hours'=>$person->annualCapacityHours,
             'notes' => $person->notes ?? '',
         ];
     }

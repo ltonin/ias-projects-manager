@@ -10,20 +10,21 @@ use App\Repositories\ProjectRepository;
 use DateTimeImmutable;
 final class InMemoryProjectRepository implements ProjectRepository
 {
-    public function accessibleFor(string $role,?int $personId,int $limit=200):array{return array_slice(array_values($this->projects),0,$limit);}
+    public function accessibleFor(string $role,?int $personId,int $limit=200):array{return array_slice(array_values(array_filter($this->projects,static fn(Project$p):bool=>!$p->isDeleted())),0,$limit);}
     public function accessibleForYear(string $role,?int $personId,int$year,int$limit=200):array
     {
         $start=sprintf('%04d-01-01',$year);$end=sprintf('%04d-01-01',$year+1);
         return array_slice(array_values(array_filter($this->projects,static fn(Project$p):bool=>
-            ($p->startDate===null||$p->startDate->format('Y-m-d')<$end)&&($p->endDate===null||$p->endDate->format('Y-m-d')>=$start)
+            !$p->isDeleted()&&($p->startDate===null||$p->startDate->format('Y-m-d')<$end)&&($p->endDate===null||$p->endDate->format('Y-m-d')>=$start)
         )),0,$limit);
     }
     /** @var array<int,Project> */ public array $projects=[];
     /** @var array<int,ProjectManagerOption> */ public array $people=[];
     private int $next=1;
     /** @param list<ProjectManagerOption> $people */ public function __construct(array $people=[]){foreach($people as $p)$this->people[$p->id]=$p;}
-    public function findById(int $id):?Project{return$this->projects[$id]??null;}
-    public function search(array $f,int $page,int $per):ProjectPage{$items=array_values(array_filter($this->projects,static function(Project $p)use($f){$h=strtolower(implode(' ',[$p->acronym,$p->title,$p->internalCode,$p->grantAgreementNumber,$p->fundingAgency,$p->fundingProgramme,$p->coordinatorOrganization,$p->managerName,$p->managerEmail]));return($f['search']===''||str_contains($h,strtolower($f['search'])))&&($f['status']===''||$p->status===$f['status'])&&($f['manager_person_id']===''||$p->managerPersonId===(int)$f['manager_person_id'])&&($f['funding_agency']===''||$p->fundingAgency===$f['funding_agency'])&&($f['funding_programme']===''||$p->fundingProgramme===$f['funding_programme']);}));usort($items,static fn(Project $a,Project $b)=>[$b->startDate?->format('Y-m-d')??'', $a->acronym,$a->id]<=>[$a->startDate?->format('Y-m-d')??'',$b->acronym,$b->id]);$items=array_map(static fn(Project $p):Project=>$p->withoutNotes(),$items);return new ProjectPage(array_slice($items,($page-1)*$per,$per),count($items),$page,$per);}
+    public function findById(int $id):?Project{$p=$this->projects[$id]??null;return$p?->isDeleted()?null:$p;}
+    public function findIncludingDeleted(int$id):?Project{return$this->projects[$id]??null;}
+    public function search(array $f,int $page,int $per):ProjectPage{$items=array_values(array_filter($this->projects,static function(Project $p)use($f){$h=strtolower(implode(' ',[$p->acronym,$p->title,$p->internalCode,$p->grantAgreementNumber,$p->fundingAgency,$p->fundingProgramme,$p->coordinatorOrganization,$p->managerName,$p->managerEmail]));return!$p->isDeleted()&&($f['search']===''||str_contains($h,strtolower($f['search'])))&&($f['status']===''||$p->status===$f['status'])&&($f['manager_person_id']===''||$p->managerPersonId===(int)$f['manager_person_id'])&&($f['funding_agency']===''||$p->fundingAgency===$f['funding_agency'])&&($f['funding_programme']===''||$p->fundingProgramme===$f['funding_programme']);}));usort($items,static fn(Project $a,Project $b)=>[$b->startDate?->format('Y-m-d')??'', $a->acronym,$a->id]<=>[$a->startDate?->format('Y-m-d')??'',$b->acronym,$b->id]);$items=array_map(static fn(Project $p):Project=>$p->withoutNotes(),$items);return new ProjectPage(array_slice($items,($page-1)*$per,$per),count($items),$page,$per);}
     public function create(array $d):Project{$this->duplicates($d,null);return$this->projects[$this->next]=$this->make($this->next++,$d);}
     public function update(int $id,array $d,?int $required=null):Project{$p=$this->projects[$id]??throw new \OutOfBoundsException();if($required!==null&&!$p->isOwnedBy($required))throw new AuthorizationException('Project ownership changed.');$this->duplicates($d,$id);return$this->projects[$id]=$this->make($id,$d);}
     public function updateStatus(int $id,string $status,?int $required=null):Project{$p=$this->projects[$id]??throw new \OutOfBoundsException();if($required!==null&&!$p->isOwnedBy($required))throw new AuthorizationException();$d=$this->data($p);$d['status']=$status;return$this->projects[$id]=$this->make($id,$d);}

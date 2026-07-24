@@ -38,6 +38,14 @@ final class AuthorizationTest extends TestCase
         self::assertTrue($this->authorization(User::ROLE_ADMIN)->admin()->isAdmin());
     }
 
+    public function testProjectManagerCanViewPeopleButCannotUseAdminArea(): void
+    {
+        $authorization=$this->authorization(User::ROLE_PROJECT_MANAGER);
+        self::assertTrue($authorization->peopleViewer()->isProjectManager());
+        $this->expectException(AuthorizationException::class);
+        $authorization->admin();
+    }
+
     public static function nonAdminRoles(): array
     {
         return [[User::ROLE_PARTICIPANT], [User::ROLE_VIEWER]];

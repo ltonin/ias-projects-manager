@@ -11,5 +11,9 @@ final class MonthlyCapacitySummary
     public function actualStatus(DecimalHours$d):string{return$this->status($this->actualRemaining($d),$d);}
     public function plannedWarning(DecimalHours$d):?string{$remaining=$this->plannedRemaining($d);return$d->compare($remaining,'0.00')<0?'Planned allocation exceeds monthly capacity by '.$d->format(abs($d->cents($remaining))).' hours.':null;}
     public function actualWarning(DecimalHours$d):?string{$remaining=$this->actualRemaining($d);return$d->compare($remaining,'0.00')<0?'Actual recorded effort exceeds monthly capacity by '.$d->format(abs($d->cents($remaining))).' hours.':null;}
+    public function allocatedHours():string{return$this->actualHours!=='0.00'?$this->actualHours:$this->plannedHours;}
+    public function remaining(DecimalHours$d):string{return$d->subtract($this->capacity->effectiveHours,$this->allocatedHours());}
+    public function allocatedStatus(DecimalHours$d):string{return$this->status($this->remaining($d),$d);}
+    public function warning(DecimalHours$d):?string{$remaining=$this->remaining($d);return$d->compare($remaining,'0.00')<0?'Allocation exceeds monthly capacity by '.$d->format(abs($d->cents($remaining))).' hours.':null;}
     private function status(string$remaining,DecimalHours$d):string{$c=$d->compare($remaining,'0.00');return$c>0?'available':($c===0?'fully_allocated':'overallocated');}
 }

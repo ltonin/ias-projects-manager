@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http;
 
+use Closure;
+
 final class Response
 {
     /** @param array<string, string> $headers */
@@ -11,6 +13,7 @@ final class Response
         private readonly string $body = '',
         private readonly int $status = 200,
         private readonly array $headers = ['Content-Type' => 'text/html; charset=UTF-8'],
+        private readonly ?Closure $stream = null,
     ) {
     }
 
@@ -31,11 +34,21 @@ final class Response
         return new self('', $status, ['Location' => $url]);
     }
 
+    /** @param Closure():void $stream @param array<string,string> $headers */
+    public static function stream(Closure $stream, array $headers, int $status = 200): self
+    {
+        return new self('', $status, $headers, $stream);
+    }
+
     public function send(): void
     {
         http_response_code($this->status);
         foreach ($this->headers as $name => $value) {
             header($name . ': ' . $value);
+        }
+        if ($this->stream !== null) {
+            ($this->stream)();
+            return;
         }
         echo $this->body;
     }
@@ -44,4 +57,5 @@ final class Response
     public function status(): int { return $this->status; }
     /** @return array<string, string> */
     public function headers(): array { return $this->headers; }
+    public function isStreamed(): bool { return $this->stream !== null; }
 }

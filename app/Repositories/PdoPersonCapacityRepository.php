@@ -15,7 +15,7 @@ final class PdoPersonCapacityRepository implements PersonCapacityRepository
     public function listOverridesForPersonAndYear(int$p,int$y):array{$s=$this->connection()->prepare('SELECT * FROM person_month_capacity_overrides WHERE person_id=:p AND year=:y ORDER BY month,id');$s->execute(['p'=>$p,'y'=>$y]);return array_map(fn($r)=>$this->hydrate($r)->withoutNotes(),$s->fetchAll());}
     public function monthlyAllocationTotalsForPerson(int$p,int$y):array
     {
-        $s=$this->connection()->prepare('SELECT a.month,COALESCE(SUM(a.planned_hours),0.00) planned,COALESCE(SUM(a.actual_hours),0.00) actual FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id WHERE pp.person_id=:p AND a.year=:y GROUP BY a.month ORDER BY a.month');$s->execute(['p'=>$p,'y'=>$y]);$out=[];foreach($s->fetchAll()as$r)$out[(int)$r['month']]=['planned'=>(string)$r['planned'],'actual'=>(string)$r['actual']];return$out;
+        $s=$this->connection()->prepare('SELECT a.month,COALESCE(SUM(a.planned_hours),0.00) planned,COALESCE(SUM(a.actual_hours),0.00) actual FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id JOIN projects pr ON pr.id=pp.project_id AND pr.deleted_at IS NULL WHERE pp.person_id=:p AND a.year=:y GROUP BY a.month ORDER BY a.month');$s->execute(['p'=>$p,'y'=>$y]);$out=[];foreach($s->fetchAll()as$r)$out[(int)$r['month']]=['planned'=>(string)$r['planned'],'actual'=>(string)$r['actual']];return$out;
     }
     public function createOverride(array$d):PersonCapacityOverride{try{$s=$this->connection()->prepare('INSERT INTO person_month_capacity_overrides(person_id,year,month,available_hours,notes) VALUES(:person_id,:year,:month,:available_hours,:notes)');$s->execute($d);}catch(PDOException$e){$this->translate($e);throw$e;}return$this->findOverrideById((int)$this->connection()->lastInsertId())??throw new \RuntimeException('Override not loaded.');}
     public function updateOverride(int$id,int$p,array$d):PersonCapacityOverride{try{$s=$this->connection()->prepare('UPDATE person_month_capacity_overrides SET year=:year,month=:month,available_hours=:available_hours,notes=:notes WHERE id=:id AND person_id=:person_id');$s->execute(['id'=>$id,'person_id'=>$p]+$d);if($s->rowCount()===0){$o=$this->findOverrideById($id);if($o===null||$o->personId!==$p)throw new \OutOfBoundsException('Override not found.');}}catch(PDOException$e){$this->translate($e);throw$e;}return$this->findOverrideById($id)??throw new \OutOfBoundsException('Override not found.');}
@@ -32,7 +32,7 @@ final class PdoPersonCapacityRepository implements PersonCapacityRepository
     {
         if($ids===[])return[];$marks=implode(',',array_fill(0,count($ids),'?'));
         $s=$this->connection()->prepare("SELECT pp.person_id,a.month,COALESCE(SUM(a.planned_hours),0.00) planned,COALESCE(SUM(a.actual_hours),0.00) actual
-            FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id
+            FROM person_hour_allocations a JOIN project_participants pp ON pp.id=a.project_participant_id JOIN projects pr ON pr.id=pp.project_id AND pr.deleted_at IS NULL
             WHERE a.year=? AND pp.person_id IN ($marks) GROUP BY pp.person_id,a.month ORDER BY pp.person_id,a.month");$s->execute([$year,...$ids]);$out=[];
         foreach($s->fetchAll()as$r)$out[(int)$r['person_id']][(int)$r['month']]=['planned'=>(string)$r['planned'],'actual'=>(string)$r['actual']];return$out;
     }

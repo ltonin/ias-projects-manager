@@ -37,11 +37,11 @@ final class AnnualEffortViewTest extends TestCase
         self::assertStringContainsString('name="allocations[1][1][2]" value=""',$html);
         self::assertStringContainsString('Save person-hours',$html);self::assertStringContainsString('data-dirty-count',$html);
     }
-    public function testReadOnlyManagerActionsIncludeYearPreservingAddParticipant():void
+    public function testReadOnlyManagerActionsUseCanonicalYearPreservingConfiguration():void
     {
         $html=$this->render(false,false,false,null,true);
-        self::assertStringContainsString('Add participant',$html);
-        self::assertStringContainsString('/projects/1/participants/create?year=2027&amp;return=configure',$html);
+        self::assertStringNotContainsString('Add participant',$html);
+        self::assertStringContainsString('Edit hours',$html);
         self::assertStringContainsString('/projects/1/configure?year=2027',$html);
     }
     public function testDivergentAllocationIsReadOnlyExplainedLinkedAndExcluded():void
@@ -49,7 +49,9 @@ final class AnnualEffortViewTest extends TestCase
         $html=$this->render(true,false,true);
         self::assertSame(47,substr_count($html,'class="form-control form-control-sm effort-cell"'));
         self::assertStringContainsString('Unified totals are incomplete.',$html);self::assertStringContainsString('Different values',$html);
-        self::assertStringContainsString('Planned: 20.00 hours. Actual: 15.00 hours.',$html);
+        self::assertStringContainsString('Legacy inconsistent allocation.',$html);
+        self::assertStringNotContainsString('Planned:',$html);
+        self::assertStringNotContainsString('Actual:',$html);
         self::assertStringContainsString('/allocations/2',$html);self::assertStringContainsString('1 divergent',$html);
     }
     public function testCurrentMonthUsesServerProvidedStateOnlyForCurrentYear():void

@@ -68,6 +68,7 @@ final class InMemoryPersonRepository implements PersonRepository
             'active_from'=>$person->activeFrom?->format('Y-m-d'),'active_to'=>$person->activeTo?->format('Y-m-d'),
             'is_active'=>$active,'notes'=>$person->notes,
             'default_monthly_capacity_hours'=>$person->defaultMonthlyCapacityHours,
+            'annual_capacity_hours'=>$person->annualCapacityHours,
         ];
         return $this->people[$id] = $this->make($id, $data);
     }
@@ -97,6 +98,6 @@ final class InMemoryPersonRepository implements PersonRepository
     {
         $now = new DateTimeImmutable('2026-01-01');
         $username = $data['user_id'] === null ? null : ($this->users[$data['user_id']]->username ?? null);
-        return new Person($id, $data['user_id'], $data['first_name'], $data['last_name'], $data['institutional_email'], $data['affiliation'], $data['position_type'], $data['is_internal'], $data['active_from']===null?null:new DateTimeImmutable($data['active_from']), $data['active_to']===null?null:new DateTimeImmutable($data['active_to']), $data['is_active'], $data['notes'], $now, $now, $username,$data['default_monthly_capacity_hours']??'125.00');
+        return new Person($id, $data['user_id'], $data['first_name'], $data['last_name'], $data['institutional_email'], $data['affiliation'], $data['position_type'], $data['is_internal'], $data['active_from']===null?null:new DateTimeImmutable($data['active_from']), $data['active_to']===null?null:new DateTimeImmutable($data['active_to']), $data['is_active'], $data['notes'], $now, $now, $username,$data['default_monthly_capacity_hours']??'125.00',$data['annual_capacity_hours']??Person::defaultAnnualCapacity($data['position_type']));
     }
 }

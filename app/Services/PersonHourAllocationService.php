@@ -106,7 +106,14 @@ final class PersonHourAllocationService
     {
         $decimal=static function(mixed$value):?string{$value=trim((string)$value);if($value==='')return null;if(!str_contains($value,'.'))return$value.'.00';return strlen(substr(strrchr($value,'.')?:'',1))===1?$value.'0':$value;};
         $notes=trim((string)($input['notes']??''));
-        return['work_package_id'=>$this->id($input['work_package_id']??null),'year'=>(int)$input['year'],'month'=>(int)$input['month'],'planned_hours'=>$decimal($input['planned_hours']??null),'actual_hours'=>$decimal($input['actual_hours']??null),'notes'=>$notes===''?null:$notes];
+        if(array_key_exists('allocated_hours',$input)){
+            $hours=$decimal($input['allocated_hours']);
+            $planned=$actual=$hours;
+        }else{
+            $planned=$decimal($input['planned_hours']??null);
+            $actual=$decimal($input['actual_hours']??null);
+        }
+        return['work_package_id'=>$this->id($input['work_package_id']??null),'year'=>(int)$input['year'],'month'=>(int)$input['month'],'planned_hours'=>$planned,'actual_hours'=>$actual,'notes'=>$notes===''?null:$notes];
     }
     private function id(mixed$v):?int{$v=trim((string)$v);if($v==='')return null;$id=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);return$id===false?null:(int)$id;}
 }

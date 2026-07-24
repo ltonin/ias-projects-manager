@@ -57,6 +57,8 @@ final class PersonValidator
         }
         $capacity=trim((string)($input['default_monthly_capacity_hours']??'125.00'));
         if(preg_match('/^(?:0|[1-9]\\d{0,5})(?:\\.\\d{1,2})?$/',$capacity)!==1)$errors['default_monthly_capacity_hours']='Standard Monthly Capacity must be between 0.00 and 999999.99 with no more than two decimal places.';
+        $annual=trim((string)($input['annual_capacity_hours']??''));
+        if(preg_match('/^[1-9]\\d{0,5}(?:\\.\\d{1,2})?$/',$annual)!==1)$errors['annual_capacity_hours']='Maximum working hours per year must be a positive number with at most two decimal places.';
         return $errors;
     }
 

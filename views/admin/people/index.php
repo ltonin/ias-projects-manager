@@ -8,9 +8,9 @@ $queryWithoutPage = $filters + ['per_page' => $page->perPage];
 ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div><h1 class="h2 mb-1">People</h1><p class="text-secondary mb-0"><?= View::escape($page->total) ?> result<?= $page->total === 1 ? '' : 's' ?></p></div>
-    <a class="btn btn-primary" href="<?= View::escape($urls->to('/admin/people/create')) ?>">Create person</a>
+    <?php if($canManage):?><a class="btn btn-primary" href="<?= View::escape($urls->to('/admin/people/create')) ?>">Create person</a><?php endif;?>
 </div>
-<form class="card card-body mb-4" method="get" action="<?= View::escape($urls->to('/admin/people')) ?>">
+<form class="filter-toolbar mb-4" method="get" action="<?= View::escape($urls->to('/admin/people')) ?>">
     <div class="row g-3 align-items-end">
         <div class="col-lg-4"><label class="form-label" for="search">Search</label><input class="form-control" id="search" name="search" value="<?= View::escape($filters['search']) ?>" placeholder="Name, email, affiliation, or username"></div>
         <div class="col-sm-6 col-lg-2"><label class="form-label" for="active">Status</label><select class="form-select" id="active" name="active"><?php foreach (['active'=>'Active','inactive'=>'Inactive','all'=>'All'] as $value=>$label): ?><option value="<?= $value ?>" <?= $filters['active']===$value?'selected':'' ?>><?= $label ?></option><?php endforeach; ?></select></div>
@@ -22,24 +22,20 @@ $queryWithoutPage = $filters + ['per_page' => $page->perPage];
 </form>
 <div class="table-responsive bg-white border rounded">
     <table class="table table-striped align-middle mb-0">
-        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Affiliation</th><th>Position</th><th>Type</th><th>Association</th><th>Status</th><th>Linked user</th><th>Actions</th></tr></thead>
+        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Affiliation</th><th>Position</th><th>Annual capacity</th><th>Type</th><th>Association</th><th>Status</th><th>Linked user</th><th>Actions</th></tr></thead>
         <tbody>
         <?php foreach ($page->items as $person): ?>
             <tr>
                 <td><?= View::escape($person->id) ?></td><td><?= View::escape($person->fullName()) ?></td>
                 <td><?= View::escape($person->institutionalEmail ?? '—') ?></td><td><?= View::escape($person->affiliation ?? '—') ?></td>
-                <td><?= View::escape($person->positionLabel()) ?></td><td><?= View::escape($person->internalLabel()) ?></td>
+                <td><?= View::escape($person->positionLabel()) ?></td><td><?= View::escape($person->annualCapacityHours) ?> h</td><td><?= View::escape($person->internalLabel()) ?></td>
                 <td><?= View::escape($person->associationPeriod()) ?></td>
-                <td><span class="badge <?= $person->isActive ? 'text-bg-success':'text-bg-secondary' ?>"><?= View::escape($person->activeLabel()) ?></span></td>
+                <td><?php if($person->isActive):?><span class="badge text-bg-success">Active</span><?php else:?><span class="text-secondary">Inactive</span><?php endif;?></td>
                 <td><?= View::escape($person->linkedUsername ?? '—') ?></td>
-                <td><div class="d-flex gap-2">
-                    <a class="btn btn-sm btn-outline-primary" href="<?= View::escape($urls->to('/admin/people/'.$person->id.'/edit')) ?>">Edit</a>
-                    <a class="btn btn-sm btn-outline-secondary" href="<?= View::escape($urls->to('/people/'.$person->id.'/capacity')) ?>">Capacity</a>
-                    <form method="post" action="<?= View::escape($urls->to('/admin/people/'.$person->id.'/'.($person->isActive?'deactivate':'activate'))) ?>"><input type="hidden" name="_csrf" value="<?= View::escape($csrfToken) ?>"><button class="btn btn-sm btn-outline-<?= $person->isActive?'danger':'success' ?>" type="submit"><?= $person->isActive?'Deactivate':'Activate' ?></button></form>
-                </div></td>
+                <td class="table-actions"><?php if($canManage):?><div class="dropdown"><button class="btn btn-sm btn-quiet dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions for <?= View::escape($person->fullName()) ?>">Actions</button><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="<?= View::escape($urls->to('/admin/people/'.$person->id.'/edit')) ?>">Edit person</a></li><li><a class="dropdown-item" href="<?= View::escape($urls->to('/people/'.$person->id.'/capacity')) ?>">View capacity</a></li><li><hr class="dropdown-divider"></li><li><form method="post" action="<?= View::escape($urls->to('/admin/people/'.$person->id.'/'.($person->isActive?'deactivate':'activate'))) ?>"><input type="hidden" name="_csrf" value="<?= View::escape($csrfToken) ?>"><button class="dropdown-item <?= $person->isActive?'text-danger':'' ?>" type="submit"><?= $person->isActive?'Deactivate':'Activate' ?></button></form></li></ul></div><?php endif;?></td>
             </tr>
         <?php endforeach; ?>
-        <?php if ($page->items === []): ?><tr><td colspan="10" class="text-center text-secondary py-4">No people match these criteria.</td></tr><?php endif; ?>
+        <?php if ($page->items === []): ?><tr><td colspan="11" class="text-center text-secondary py-4">No people match these criteria.</td></tr><?php endif; ?>
         </tbody>
     </table>
 </div>

@@ -76,3 +76,27 @@
   document.querySelector('[data-capacity-collapse-all]')?.addEventListener('click',()=>sections().forEach(section=>set(section,false)));
   document.querySelector('[data-capacity-search]')?.addEventListener('input',event=>{const value=event.target.value.trim().toLowerCase();overview.querySelectorAll('[data-capacity-person]').forEach(section=>section.hidden=value!==''&&!section.dataset.personSearch.includes(value))});
 })();
+document.addEventListener('click',function(event){
+  const remove=event.target.closest('[data-remove-wp]');
+  if(!remove)return;
+  const table=remove.closest('[data-wp-collection]');
+  const row=remove.closest('[data-wp-row]');
+  if(table&&row)row.remove();
+});
+(() => {
+  const position=document.querySelector('[data-position-type]');
+  const annual=document.querySelector('[data-annual-capacity]');
+  if(!position||!annual)return;
+  let pristine=annual.dataset.pristine==='1';
+  annual.addEventListener('input',()=>{pristine=false});
+  position.addEventListener('change',()=>{
+    if(!pristine)return;
+    annual.value=['full_professor','associate_professor','assistant_professor','researcher'].includes(position.value)?'1150.00':'1500.00';
+  });
+})();
+(() => {
+  const form=document.querySelector('[data-permanent-delete-form]');if(!form)return;
+  const input=form.querySelector('[data-delete-confirmation]'),submit=form.querySelector('[data-delete-submit]');
+  const update=()=>{submit.disabled=input.value!==input.dataset.expected};
+  input.addEventListener('input',update);update();
+})();

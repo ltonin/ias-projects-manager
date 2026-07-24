@@ -45,6 +45,8 @@ services:
       - ./database/migrations/008_add_person_capacity.sql:/docker-entrypoint-initdb.d/008_add_person_capacity.sql:ro
       - ./database/migrations/009_create_work_packages.sql:/docker-entrypoint-initdb.d/009_create_work_packages.sql:ro
       - ./database/migrations/010_add_work_package_allocations.sql:/docker-entrypoint-initdb.d/010_add_work_package_allocations.sql:ro
+      - ./database/migrations/011_add_annual_person_capacity.sql:/docker-entrypoint-initdb.d/011_add_annual_person_capacity.sql:ro
+      - ./database/migrations/012_add_project_trash.sql:/docker-entrypoint-initdb.d/012_add_project_trash.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-local-root-development-only}"]
       interval: 5s

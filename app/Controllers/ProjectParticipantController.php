@@ -53,6 +53,7 @@ final class ProjectParticipantController
         $user = $this->authorization->user();
         $person = $this->currentPerson->get();
         $project = $this->project($parameters);
+        $this->policy->requireView($user, $person, $project);
         $listing = $this->service->listing($project, $this->request->queryData());
         return new Response($this->view->render('project_participants/index', [
             'title' => 'Participants — ' . $project->acronym,
@@ -72,6 +73,7 @@ final class ProjectParticipantController
         $user = $this->authorization->user();
         $person = $this->currentPerson->get();
         $project = $this->project($parameters);
+        $this->policy->requireView($user, $person, $project);
         $participant = $this->participant($parameters, $project);
         $canManage = $this->policy->canManageParticipants($user, $person, $project);
         $canNotes = $this->policy->canViewParticipantNotes($user, $person, $project);

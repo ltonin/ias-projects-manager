@@ -19,18 +19,10 @@ use App\Support\View;
                 <td><?= View::escape($user->fullName()) ?></td>
                 <td><?= View::escape($user->email) ?></td>
                 <td><?= View::escape($user->roleLabel()) ?></td>
-                <td><span class="badge <?= $user->isActive ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $user->isActive ? 'Active' : 'Inactive' ?></span></td>
+                <td><?php if($user->isActive):?><span class="badge text-bg-success">Active</span><?php else:?><span class="text-secondary">Inactive</span><?php endif;?></td>
                 <td><?= View::escape($user->lastLoginAt?->format('Y-m-d H:i') ?? 'Never') ?></td>
                 <td><?= View::escape($user->createdAt->format('Y-m-d')) ?></td>
-                <td>
-                    <div class="d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" href="<?= View::escape($urls->to('/admin/users/' . $user->id . '/edit')) ?>">Edit</a>
-                        <form method="post" action="<?= View::escape($urls->to('/admin/users/' . $user->id . '/' . ($user->isActive ? 'deactivate' : 'activate'))) ?>">
-                            <input type="hidden" name="_csrf" value="<?= View::escape($csrfToken) ?>">
-                            <button class="btn btn-sm btn-outline-<?= $user->isActive ? 'danger' : 'success' ?>" type="submit"><?= $user->isActive ? 'Deactivate' : 'Activate' ?></button>
-                        </form>
-                    </div>
-                </td>
+                <td class="table-actions"><div class="dropdown"><button class="btn btn-sm btn-quiet dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions for <?= View::escape($user->username) ?>">Actions</button><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="<?= View::escape($urls->to('/admin/users/' . $user->id . '/edit')) ?>">Edit user</a></li><li><hr class="dropdown-divider"></li><li><form method="post" action="<?= View::escape($urls->to('/admin/users/' . $user->id . '/' . ($user->isActive ? 'deactivate' : 'activate'))) ?>"><input type="hidden" name="_csrf" value="<?= View::escape($csrfToken) ?>"><button class="dropdown-item <?= $user->isActive?'text-danger':'' ?>" type="submit"><?= $user->isActive ? 'Deactivate' : 'Activate' ?></button></form></li></ul></div></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
