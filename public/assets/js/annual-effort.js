@@ -33,6 +33,7 @@
         const wp=section.dataset.wpId;let annual=0;
         for(let month=1;month<=12;month++){
             let monthly=0;section.querySelectorAll(`.effort-cell[data-month="${month}"]`).forEach(input=>monthly+=decimal.parse(input.value).valid?(decimal.parse(input.value).cents??0):0);
+            section.querySelectorAll(`[data-static-effort][data-month="${month}"]`).forEach(value=>monthly+=decimal.parse(value.dataset.hours).cents??0);
             const target=section.querySelector(`[data-wp-month="${wp}-${month}"]`);if(target)target.textContent=decimal.format(monthly);annual+=monthly;
         }
         section.querySelectorAll(`[data-wp-annual-total="${wp}"],[data-wp-annual="${wp}"]`).forEach(target=>target.textContent=decimal.format(annual));
@@ -41,10 +42,11 @@
     function recalculateProject(){
         let annual=0;
         for(let month=1;month<=12;month++){
-            let monthly=0;root.querySelectorAll(`[data-wp-month$="-${month}"]`).forEach(target=>{const parsed=decimal.parse(target.textContent);monthly+=parsed.cents??0;});
-            root.querySelector(`[data-project-month="${month}"]`).textContent=decimal.format(monthly);annual+=monthly;
+            let monthly=0;root.querySelectorAll(`.effort-cell[data-month="${month}"]`).forEach(input=>monthly+=decimal.parse(input.value).valid?(decimal.parse(input.value).cents??0):0);
+            root.querySelectorAll(`[data-static-effort][data-month="${month}"]`).forEach(value=>monthly+=decimal.parse(value.dataset.hours).cents??0);
+            const target=root.querySelector(`[data-project-month="${month}"]`);if(target)target.textContent=decimal.format(monthly);annual+=monthly;
         }
-        root.querySelector('[data-project-annual]').textContent=decimal.format(annual);
+        root.querySelector('[data-project-annual]').textContent=`${decimal.format(annual)} h`;
         const factor=decimal.parse(root.dataset.hoursPerPm).cents;root.querySelector('[data-project-pm]').textContent=`${decimal.pm(annual,factor)} PM`;
         const count=dirtyInputs().length;root.querySelector('[data-dirty-count]')?.replaceChildren(String(count));
         root.querySelector('[data-save-button]')?.toggleAttribute('disabled',count===0);
@@ -83,7 +85,20 @@
     window.addEventListener('beforeunload',event=>{if(!submitting&&dirtyInputs().length){event.preventDefault();event.returnValue='';}});
     root.addEventListener('click',event=>{const link=event.target.closest('a[href]');if(!link)return;const url=new URL(link.href,location.href);if(url.pathname===location.pathname&&url.search===location.search&&url.hash)return;if(!warnIfDirty())event.preventDefault();});
     root.querySelector('[data-year-form]')?.addEventListener('submit',event=>{if(!warnIfDirty())event.preventDefault();});
-    form?.addEventListener('submit',()=>{submitting=true;saveContext();});
+    form?.addEventListener('submit',()=>{
+        submitting=true;saveContext();
+        // One JSON field avoids PHP max_input_vars truncating large nested grids.
+        const payload={};
+        dirtyInputs().forEach(input=>{
+            payload[input.dataset.wp]??={};
+            payload[input.dataset.wp][input.dataset.participant]??={};
+            payload[input.dataset.wp][input.dataset.participant][input.dataset.month]=input.value;
+        });
+        let field=form.querySelector('[name="allocations_json"]');
+        if(!field){field=document.createElement('input');field.type='hidden';field.name='allocations_json';form.append(field);}
+        field.value=JSON.stringify(payload);
+        inputs().forEach(input=>input.disabled=true);
+    });
     root.querySelector('[data-reset-changes]')?.addEventListener('click',()=>{
         if(!dirtyInputs().length||!window.confirm('Restore every changed cell to its server-rendered value?'))return;
         inputs().forEach(input=>input.value=input.dataset.initial);inputs().forEach(recalculateRow);root.querySelectorAll('[data-wp-id]').forEach(recalculateWp);recalculateProject();
@@ -117,6 +132,10 @@
     root.querySelector('[data-grid-filters]')?.addEventListener('input',applyFilters);
     root.querySelector('[data-grid-filters]')?.addEventListener('change',applyFilters);
     root.querySelector('[data-reset-filters]')?.addEventListener('click',()=>{root.querySelectorAll('[data-grid-filters] input,[data-grid-filters] select').forEach(control=>control.value='');applyFilters();});
+    root.querySelector('[data-add-project-level]')?.addEventListener('click',()=>{
+        const section=root.querySelector('[data-project-level-section]');if(!section)return;
+        section.hidden=false;section.open=true;root.querySelector('[data-project-level-launcher]')?.remove();section.querySelector('.effort-cell')?.focus();
+    });
 
     function saveContext(){
         const open=Array.from(root.querySelectorAll('[data-wp-id][open]')).map(section=>section.dataset.wpId);
@@ -127,6 +146,7 @@
         setMonth(sessionStorage.getItem(`${stateKey}:month`)??new Date().getMonth()+1);
         const scroll=Number(sessionStorage.getItem(`${stateKey}:scroll`));if(scroll>0)requestAnimationFrame(()=>window.scrollTo(0,scroll));
     }
-    inputs().forEach(recalculateRow);root.querySelectorAll('[data-wp-id]').forEach(recalculateWp);recalculateProject();restoreContext();applyFilters();
+    if(form){inputs().forEach(recalculateRow);root.querySelectorAll('[data-wp-id]').forEach(recalculateWp);recalculateProject();}
+    restoreContext();applyFilters();
     if(root.dataset.hasError==='1'){const target=dirtyInputs()[0]??root.querySelector('[data-grid-error]');target?.closest('details')?.setAttribute('open','');target?.focus();}
 })();

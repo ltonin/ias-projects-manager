@@ -32,7 +32,7 @@ a2.value='0.00';a2.dispatchEvent(new Event('input',{bubbles:true}));
 checks.push(a2.dataset.dirty==='1',root.querySelector('[data-dirty-count]').textContent==='1',root.querySelector('[data-participant-annual="1-1"]').textContent==='10.00');
 a2.value='';a2.dispatchEvent(new Event('input',{bubbles:true}));checks.push(a2.dataset.dirty==='0');
 b1.value='0.20';b1.dispatchEvent(new Event('input',{bubbles:true}));
-checks.push(root.querySelector('[data-wp-month="1-1"]').textContent==='10.20',root.querySelector('[data-project-annual]').textContent==='10.40',root.querySelector('[data-project-pm]').textContent==='0.083 PM');
+checks.push(root.querySelector('[data-wp-month="1-1"]').textContent==='10.20',root.querySelector('[data-project-annual]').textContent==='10.40 h',root.querySelector('[data-project-pm]').textContent==='0.083 PM');
 a1.focus();a1.setSelectionRange(a1.value.length,a1.value.length);a1.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));checks.push(document.activeElement===a2);
 a2.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',shiftKey:true,bubbles:true}));checks.push(document.activeElement===a1);
 a1.setSelectionRange(1,1);a1.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));checks.push(document.activeElement===a1,a1.selectionStart===1);
@@ -41,5 +41,9 @@ root.querySelector('[data-filter-participant]').value='nobody';root.querySelecto
 root.querySelector('[data-collapse-all]').click();checks.push(root.querySelector('[data-wp-id]').open===false);root.querySelector('[data-expand-all]').click();checks.push(root.querySelector('[data-wp-id]').open===true);
 root.querySelector('[data-month-focus]').value='1';root.querySelector('[data-month-focus]').dispatchEvent(new Event('change'));root.querySelector('[data-month-next]').click();checks.push(root.querySelector('[data-month-focus]').value==='2',b1.value==='0.20');
 window.confirm=()=>true;root.querySelector('[data-reset-changes]').click();checks.push(b1.value==='0.10',root.querySelector('[data-dirty-count]').textContent==='0');
+b1.value='0.20';b1.dispatchEvent(new Event('input',{bubbles:true}));
+const form=root.querySelector('[data-effort-form]');form.addEventListener('submit',(event)=>event.preventDefault(),{once:true});form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+const payloadInput=form.querySelector('input[name="allocations_json"]'),payload=payloadInput?JSON.parse(payloadInput.value):{};
+checks.push(payload['1']['2']['1']==='0.20',Array.from(form.querySelectorAll('.effort-cell')).every((input)=>input.disabled));
 document.getElementById('result').textContent=checks.every(Boolean)?'ANNUAL_EFFORT_BROWSER_OK':'ANNUAL_EFFORT_BROWSER_FAILED '+JSON.stringify(checks);
 </script>

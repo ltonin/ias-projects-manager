@@ -17,5 +17,8 @@ final class AnnualEffortClientAssetTest extends TestCase
         self::assertStringContainsString('beforeunload', $grid);
         self::assertStringContainsString('dataset.initial', $grid);
         self::assertStringContainsString('sessionStorage', $grid);
+        self::assertStringContainsString("field.name='allocations_json'", $grid);
+        self::assertStringContainsString('JSON.stringify(payload)', $grid);
+        self::assertStringContainsString('inputs().forEach(input=>input.disabled=true)', $grid);
     }
 }

@@ -43,5 +43,5 @@ use App\Support\View;
 </div>
 </div>
 <?php else:?><main class="container py-5"><?php foreach($flashMessages as$message):?><div class="alert alert-<?= View::escape($message['type']) ?>"><?= View::escape($message['message']) ?></div><?php endforeach;?><?= $content ?></main><?php endif;?>
-<script src="<?= View::escape($urls->asset('vendor/bootstrap/js/bootstrap.bundle.min.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/app.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/annual-effort-decimal.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/annual-effort.js')) ?>"></script>
+<script src="<?= View::escape($urls->asset('vendor/bootstrap/js/bootstrap.bundle.min.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/app.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/annual-effort-decimal.js')) ?>"></script><script src="<?= View::escape($urls->asset('js/annual-effort.js?v=20260724-3')) ?>"></script>
 </body></html>

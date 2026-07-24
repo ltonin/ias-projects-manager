@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Annual effort read-only totals fixture</title>
+<script src="../../public/assets/js/annual-effort-decimal.js"></script>
+<div id="annual-effort-grid" data-project-id="1" data-year="2027" data-hours-per-pm="125.00">
+    <details data-wp-id="1" open>
+        <span data-wp-month="1-1">15.00</span>
+        <span data-wp-month="1-2">13.00</span>
+        <span data-wp-annual="1">33.00</span>
+    </details>
+    <table><tfoot><tr>
+        <td data-month-total="1"><span data-project-month="1">15.00</span></td>
+        <td data-month-total="2"><span data-project-month="2">13.00</span></td>
+        <td data-month-total="3"><span data-project-month="3">5.00</span></td>
+        <td><strong data-project-annual>33.00 h</strong><small data-project-pm>0.264 PM</small></td>
+    </tr></tfoot></table>
+</div>
+<script src="../../public/assets/js/annual-effort.js"></script>
+<pre id="result">RUNNING</pre>
+<script>
+const root=document.getElementById('annual-effort-grid');
+const values=[1,2,3].map(month=>root.querySelector(`[data-project-month="${month}"]`).textContent);
+document.getElementById('result').textContent=
+    values.join(',')==='15.00,13.00,5.00'&&root.querySelector('[data-project-annual]').textContent==='33.00 h'
+        ?'ANNUAL_EFFORT_READONLY_TOTALS_OK'
+        :'ANNUAL_EFFORT_READONLY_TOTALS_FAILED';
+</script>

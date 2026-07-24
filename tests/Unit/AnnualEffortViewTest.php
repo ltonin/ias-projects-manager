@@ -23,7 +23,10 @@ final class AnnualEffortViewTest extends TestCase
         self::assertSame(2,substr_count($html,'Ada Lovelace'));self::assertSame(2,substr_count($html,'Grace Hopper'));
         self::assertLessThan(strpos($html,'WP2 — Development'),strpos($html,'WP1 — Management'));
         self::assertSame(3,substr_count($html,'<colgroup>'));self::assertSame(3*12,substr_count($html,'class="month-column-width"'));
-        self::assertStringContainsString('Unified classified project total',$html);
+        self::assertStringContainsString('Total project effort',$html);
+        self::assertSame(12,substr_count($html,'data-month-total="'));
+        self::assertStringContainsString('data-month-total="1"',$html);self::assertStringContainsString('data-month-total="12"',$html);
+        self::assertStringContainsString('data-static-effort data-month="1" data-hours="0.00"',$html);
         self::assertStringNotContainsString('name="allocations[',$html);self::assertStringNotContainsString('concurrency_token',$html);
         self::assertStringNotContainsString('Planned mode',$html);self::assertStringNotContainsString('Actual mode',$html);self::assertStringNotContainsString('name="mode"',$html);
         self::assertStringNotContainsString('data-save-button',$html);

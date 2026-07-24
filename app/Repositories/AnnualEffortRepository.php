@@ -8,6 +8,8 @@ interface AnnualEffortRepository
 {
     /** @return list<PersonHourAllocation> */
     public function classifiedForProjectYear(int $projectId,int $year):array;
+    /** @return list<PersonHourAllocation> Includes Work Package and project-level rows. */
+    public function forProjectYear(int $projectId,int $year):array;
     /** @return array{count:int,planned:string,actual:string} */
     public function unassignedSummary(int $projectId,int $year):array;
     /** @param list<PersonHourAllocation> $rows */
@@ -17,7 +19,7 @@ interface AnnualEffortRepository
     /** @return array<int,array{planned:string,actual:string}> */
     public function projectPersonTotals(int$projectId,int$year):array;
     /**
-     * @param list<array{participant_id:int,work_package_id:int,month:int,value:?string}> $changes
+     * @param list<array{participant_id:int,work_package_id:?int,month:int,value:?string}> $changes
      */
     public function save(int $projectId,int $year,array $changes,string $expectedToken,?int $requiredManagerPersonId):int;
 }

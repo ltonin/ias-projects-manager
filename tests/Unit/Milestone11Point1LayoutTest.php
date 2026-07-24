@@ -14,7 +14,7 @@ final class Milestone11Point1LayoutTest extends TestCase
         self::assertStringContainsString('table-layout: fixed',$this->css);
         self::assertStringContainsString('width: 100%',$this->css);
         self::assertStringContainsString('--effort-hierarchy-width: 15rem',$this->css);
-        self::assertStringContainsString('--effort-annual-width: 5.5rem',$this->css);
+        self::assertStringContainsString('--effort-annual-width: 7rem',$this->css);
         self::assertStringNotContainsString('width: 106rem',$this->css);
         self::assertStringNotContainsString('min-width: 106rem',$this->css);
     }
